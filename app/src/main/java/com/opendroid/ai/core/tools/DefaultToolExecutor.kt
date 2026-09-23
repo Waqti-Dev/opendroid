@@ -18,11 +18,11 @@ class DefaultToolExecutor : ToolExecutionLayer {
 
                 is ToolRequest.WriteFile -> {
                     File(request.path).writeText(request.content)
-                    ToolResult.Success("File written: ${request.path}")
+                    ExecutionResult.Success("File written: ${request.path}")
                 }
 
                 is ToolRequest.RunCommand -> {
-                    ToolResult.Success("Command queued: ${request.command}")
+                    ExecutionResult.Success("Command queued: ${request.command}")
                 }
             }
         } catch (e: Exception) {
