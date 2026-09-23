@@ -3,19 +3,9 @@ package com.opendroid.ai.core.llm
 import java.io.File
 
 /**
- * Registry for user imported local LLM artifacts.
- * Keeps model metadata separate from runtime implementation.
+ * Registry for imported local model metadata.
+ * LocalModelConfig is the canonical type defined by ModelImporter.
  */
-data class LocalModelConfig(
-    val id: String,
-    val name: String,
-    val path: String,
-    val format: String = "GGUF",
-    val quantization: String? = null,
-    val contextSize: Int = 8192,
-    val preferredForCoding: Boolean = false
-)
-
 class LocalModelRegistry {
     private val models = mutableMapOf<String, LocalModelConfig>()
 
@@ -26,14 +16,8 @@ class LocalModelRegistry {
         return true
     }
 
-    fun remove(id: String) {
-        models.remove(id)
-    }
-
+    fun remove(id: String) { models.remove(id) }
     fun get(id: String): LocalModelConfig? = models[id]
-
     fun list(): List<LocalModelConfig> = models.values.toList()
-
-    fun selectForCoding(): LocalModelConfig? =
-        models.values.firstOrNull { it.preferredForCoding }
+    fun selectForCoding(): LocalModelConfig? = models.values.firstOrNull { it.preferred }
 }
