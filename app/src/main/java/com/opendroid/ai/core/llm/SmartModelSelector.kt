@@ -1,16 +1,20 @@
 package com.opendroid.ai.core.llm
 
-/**
- * Selects the most suitable local model for a task based on requirements.
- * Keeps model selection separate from execution/runtime.
- */
 class SmartModelSelector {
-
-    fun select(task: ModelTask, available: List<LocalModelProfile>): LocalModelProfile? {
-        return available
-            .filter { it.supportedTasks.contains(task.type) }
-            .filter { it.maxContext >= task.requiredContext }
+    fun select(task: ModelTask, available: List<LocalModelProfile>): LocalModelProfile? =
+        available.filter { it.supportedTasks.contains(task.type) }
+            .filter { it.contextWindow >= task.requiredContext }
             .maxByOrNull { score(it, task) }
+
+    fun select(task: String): String {
+        val normalized = task.lowercase()
+        return when {
+            normalized.contains("build") || normalized.contains("android") ||
+                normalized.contains("kotlin") || normalized.contains("code") -> "Qwen15B"
+            normalized.contains("explain") || normalized.contains("simple") ||
+                normalized.length < 120 -> "Qwen3B"
+            else -> "Qwen7B"
+        }
     }
 
     private fun score(model: LocalModelProfile, task: ModelTask): Int {
@@ -22,18 +26,8 @@ class SmartModelSelector {
     }
 }
 
-
-data class ModelTask(
-    val type: TaskType,
-    val requiredContext: Int = 4096
-)
-
-enum class TaskType {
-    CODING,
-    CHAT,
-    SIMPLE
-}
-
+data class ModelTask(val type: TaskType, val requiredContext: Int = 4096)
+enum class TaskType { CODING, CHAT, SIMPLE }
 data class LocalModelProfile(
     val name: String,
     val memoryRequiredMb: Int,
