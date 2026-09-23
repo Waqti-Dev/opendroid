@@ -1,9 +1,5 @@
 package com.opendroid.ai.core.llm
 
-/**
- * Coordinates local model execution with cloud fallback decisions.
- * Keeps routing decisions separate from model runtimes.
- */
 class HybridRouterV2(
     private val resourceMonitor: ModelResourceMonitor,
     private val smartSelector: SmartModelSelector
@@ -14,6 +10,13 @@ class HybridRouterV2(
             RouteDecision.Local(model)
         } else {
             RouteDecision.CloudFallback(model)
+        }
+    }
+
+    fun route(task: String, context: String?): String {
+        return when (val decision = selectRoute(task)) {
+            is RouteDecision.Local -> decision.model
+            is RouteDecision.CloudFallback -> "cloud:" + decision.preferredLocalModel
         }
     }
 }
