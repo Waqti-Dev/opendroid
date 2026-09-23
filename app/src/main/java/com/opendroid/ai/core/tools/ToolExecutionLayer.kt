@@ -7,7 +7,7 @@ package com.opendroid.ai.core.tools
  * this layer so permissions, logging and safety checks can be added later.
  */
 interface ToolExecutionLayer {
-    suspend fun execute(request: ToolRequest): ToolResult
+    suspend fun execute(request: ToolRequest): ExecutionResult
 }
 
 sealed class ToolRequest {
@@ -16,7 +16,7 @@ sealed class ToolRequest {
     data class RunCommand(val command: String) : ToolRequest()
 }
 
-sealed class ToolResult {
-    data class Success(val output: String) : ToolResult()
-    data class Failure(val reason: String) : ToolResult()
+sealed class ExecutionResult {
+    data class Success(val output: String) : ExecutionResult()
+    data class Failure(val reason: String) : ExecutionResult()
 }
