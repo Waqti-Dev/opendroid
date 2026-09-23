@@ -9,11 +9,11 @@ import java.io.File
  */
 class DefaultToolExecutor : ToolExecutionLayer {
 
-    override suspend fun execute(request: ToolRequest): ToolResult {
+    override suspend fun execute(request: ToolRequest): ExecutionResult {
         return try {
             when (request) {
                 is ToolRequest.ReadFile -> {
-                    ToolResult.Success(File(request.path).readText())
+                    ExecutionResult.Success(File(request.path).readText())
                 }
 
                 is ToolRequest.WriteFile -> {
@@ -26,7 +26,7 @@ class DefaultToolExecutor : ToolExecutionLayer {
                 }
             }
         } catch (e: Exception) {
-            ToolResult.Failure(e.message ?: "Unknown error")
+            ExecutionResult.Failure(e.message ?: "Unknown error")
         }
     }
 }
