@@ -24,16 +24,20 @@ class AutonomousAgentEngine(
             ?: AgentCheckpoint(taskId = taskId, prompt = prompt)
 
         return try {
-            val provider = providerManager.selectAvailable()
+            val available = providerManager.selectAvailable()
                 ?: return fail(checkpoint, "No available AI provider.")
 
             checkpoint = checkpoint.copy(
                 currentStep = 1,
-                contextSummary = "Selected provider: ${provider.displayName}"
+                contextSummary = "Selected provider: ${available.displayName}"
             )
             checkpointStore.save(checkpoint)
 
-            val firstResponse = provider.generate(buildAgentPrompt(prompt, checkpoint))
+            val generation = providerManager.generateWithFailover(
+                buildAgentPrompt(prompt, checkpoint)
+            )
+            val provider = generation.provider
+            val firstResponse = generation.response
             val toolCall = parseToolCall(firstResponse)
 
             if (toolCall == null) {
