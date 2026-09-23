@@ -6,7 +6,7 @@ import com.opendroid.ai.core.tools.ExecutionResult
 import com.opendroid.ai.core.tools.ToolExecutionLayer
 import com.opendroid.ai.core.tools.ToolPermissionManager
 import com.opendroid.ai.core.tools.ToolRequest
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -14,7 +14,7 @@ import org.junit.Test
 class AutonomousAgentEngineTest {
 
     @Test
-    fun createUserFile_throughToolCall() = runTest {
+    fun createUserFile_throughToolCall() = runBlocking {
         val provider = FakeProvider(
             response = """{"toolCall":{"name":"WriteFile","arguments":{"path":"User.kt","content":"data class User(val name: String)"}}}"""
         )
@@ -29,7 +29,7 @@ class AutonomousAgentEngineTest {
     }
 
     @Test
-    fun deniedCommand_isRecordedAsFailure() = runTest {
+    fun deniedCommand_isRecordedAsFailure() = runBlocking {
         val manager = ProviderManager().apply {
             register(FakeProvider("""{"toolCall":{"name":"RunCommand","arguments":{"command":"./gradlew test"}}}"""))
         }
@@ -42,7 +42,7 @@ class AutonomousAgentEngineTest {
     }
 
     @Test
-    fun providerFailure_failsOverToBackupProvider() = runTest {
+    fun providerFailure_failsOverToBackupProvider() = runBlocking {
         val manager = ProviderManager().apply {
             register(FakeProvider(throwOnGenerate = true))
             register(FakeProvider("Recovered response", idValue = "backup"))
