@@ -71,6 +71,7 @@ The requested independent-product migration audit is complete. No migration or b
 - Native recovered GGUF files carry `SPDX-License-Identifier: Apache-2.0` and remain reference/research code until exact-model parity and device validation gates pass.
 - Existing app is LiteRT-oriented; it has GGUF format/runtime selection scaffolding but explicitly rejects GGUF in the current LiteRT import flow. Local GGUF is not yet a production path.
 - `Waqti-Dev/waqti`: checked with GitHub CLI and not found. No new repository was created before recording this audit checkpoint.
+- `Waqti-Dev/waqti`: created as a new **private, empty** repository at https://github.com/Waqti-Dev/waqti after the audit checkpoint. No code has been pushed to it yet.
 
 Required audit documents now present:
 
@@ -81,3 +82,12 @@ Required audit documents now present:
 - `docs/WAQTI_LINT_BACKLOG.md`
 
 Migration rule: keep `opendroid/main` and `waqti-qwen-reference-runtime` unchanged; create and verify `Waqti-Dev/waqti` before pushing migrated code. Do not perform package/application-ID changes until their impact map and rollback checkpoint are approved by the next milestone evidence.
+
+## Repository verification
+
+- New repository: `Waqti-Dev/waqti`
+- Visibility: private
+- Default branch: not initialized yet (empty repository)
+- Old `opendroid/main`: unchanged
+- Old `waqti-qwen-reference-runtime`: untouched
+- Current old-repository audit checkpoint: `a117c2a843a745e52e61d92b8f5b2ad552355d50`
