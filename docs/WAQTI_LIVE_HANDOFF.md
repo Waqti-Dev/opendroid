@@ -2,8 +2,8 @@
 
 - Last Updated (UTC): 2026-09-27T12:59:59Z
 - Branch: `waqti-qwen-reference-runtime`
-- Current commit: `91d6a20` (checkpoint commit)
-- Remote commit: pending push verification
+- Current commit: `1764dd8bc29a43f97d1dea1ddd1dfa652c383616` (persisted checkpoint)
+- Remote commit: `1764dd8bc29a43f97d1dea1ddd1dfa652c383616` (verified on `origin/waqti-qwen-reference-runtime`)
 - Previous known-good base: `b89a255b37be33096a1ba67a3cff40efcd919b82` (`main`)
 
 ## Current Phase
