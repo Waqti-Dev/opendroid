@@ -51,7 +51,7 @@ For Maven, use a preserved isolated cache or carefully repair only the affected 
 - Unit tests: FAIL, classified above.
 - Targeted MVP retest: NOT RUN.
 - Lint: NOT RUN after final source state.
-- APK artifact capture: PENDING; assembleDebug passed.
+- APK: PASS — `app/build/outputs/apk/debug/app-debug.apk`, 73,854,374 bytes, produced by `assembleDebug`.
 - Device smoke test: NOT RUN.
 - Exact Qwen GGUF: UNAVAILABLE.
 - Qwen parity: BLOCKED.

@@ -38,7 +38,7 @@ The fifth failure is the MVP test `AutonomousAgentEngineTest.createUserFile_thro
 - Compilation: **PASS** for debug APK compilation/assembly.
 - Unit tests: **FAIL** — 515 completed, 5 failures as classified above.
 - Lint: **NOT RUN** after the final source state.
-- APK: **NOT VERIFIED in this checkpoint**; assembleDebug passed, but exact APK artifact capture remains pending.
+- APK: **PASS** — `app/build/outputs/apk/debug/app-debug.apk`, 73,854,374 bytes, produced by `assembleDebug`.
 - Device smoke test: **NOT RUN**.
 - Provider live call: **NOT RUN**; no credentials used or committed.
 - Targeted MVP test after evidence collection: **NOT RUN**.
