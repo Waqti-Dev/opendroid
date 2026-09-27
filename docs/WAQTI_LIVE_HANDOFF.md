@@ -1,14 +1,14 @@
 # WAQTI LIVE HANDOFF
 
-- Last Updated (UTC): 2026-09-27T15:04:45Z
+- Last Updated (UTC): 2026-09-27T15:07:40Z
 - Branch: `waqti-qwen-reference-runtime`
 - Golden correction commit: `e908749` (`fix: correct independent qwen swiglu golden`)
-- Remote commit: `bf259fc62cc7f263c1e779c706ddeed49647b9bb` (last verified before this correction; push pending)
+- Remote commit: `b86b7190c1eb3e4500ad9b183cadc0d0316330e8` (verified on `origin/waqti-qwen-reference-runtime`)
 - Previous known-good base: `b89a255b37be33096a1ba67a3cff40efcd919b82` (`main`)
 
 ## Current Phase
 
-Golden corrected; model-level numerical verification remains blocked.
+Exact GGUF verification; model-level numerical verification remains blocked.
 
 ## Current Checkpoint
 
@@ -36,9 +36,16 @@ Golden corrected; model-level numerical verification remains blocked.
 - New: `gate * sigmoid(gate) * up` (`SiLU(gate) * up`)
 - Golden status: CORRECTED / UNVERIFIED.
 
+## Exact GGUF Verification
+
+- Filename: `qwen2.5-0.5b-instruct-q4_k_m.gguf`
+- Required SHA-256: `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`
+- Search result: `EXACT GGUF UNAVAILABLE`.
+- Search scope: `/home/ubuntu`, `/tmp`, `/mnt`, `/workspace`, `/workspaces`, `/opt`, `/srv`, Downloads, uploads, recovered task, recovered project, and preservation snapshot.
+- Numerical parity: BLOCKED until the exact file is found and its SHA-256 matches.
+
 ## Unverified / Not Claimed
 
-- Exact Qwen GGUF is unavailable; no current numerical Python↔C++ parity claim.
 - The corrected golden has not been executed against the exact model.
 - CTest 8/8 has not been rerun in this environment.
 - Generation source is present but not integrated/tested in CMake.
@@ -68,4 +75,4 @@ Golden corrected; model-level numerical verification remains blocked.
 
 ## Exact Next Action
 
-Commit and push this focused golden correction. Then obtain/verify the exact Qwen GGUF SHA-256 before executing independent Python↔C++ parity.
+Obtain/verify the exact Qwen GGUF SHA-256 before executing independent Python↔C++ parity.
