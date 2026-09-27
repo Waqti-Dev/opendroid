@@ -1,6 +1,6 @@
 # WAQTI FAILURE ROOT-CAUSE REPORT
 
-Evidence collected after the single full unit-test run. No new source fix was applied after collecting this evidence.
+Evidence collected after the single full unit-test run. The approved test-fixture-only fix has now been applied and verified.
 
 ## A) MAVEN / ROBOLECTRIC FAILURES
 
@@ -74,13 +74,15 @@ test
 
 **Classification:** MOCK / TEST FIXTURE BUG. The engine's multi-step behavior is consistent with its contract: tool execution is an intermediate state and completion requires a non-tool response. No workspace or file-path failure occurred.
 
-## C) POSSIBLE FIXES (NOT APPLIED)
+## C) APPLIED FIX
 
-### Option 1 — Correct the test fixture with a sequenced provider
+### Sequenced FakeProvider — APPLIED
 
-Return the `WriteFile` tool call once, then return a normal final response on the next generation. This directly models the production protocol and proves both tool dispatch and completion.
+`FakeProvider` now returns the `WriteFile` tool call once, then returns a normal final response on the next generation. This models the production protocol and preserves the tool-dispatch and completion assertions.
 
-**Risk:** Low. It changes only the test double's behavior, not production code or security boundaries.
+**Risk:** Low. Only the test double changed; production code and security boundaries were not changed.
+
+The higher-risk alternatives—marking every successful tool execution as terminal or adding a new terminal protocol field—were not applied.
 
 ### Option 2 — Change the engine to mark any successful write as COMPLETED
 
@@ -100,14 +102,14 @@ The provider could declare whether a tool call is the final action.
 2. Use a clean isolated Maven cache for one representative test, without deleting the existing cache.
 3. Investigate Robolectric resolver/version behavior only if the isolated-cache test still reproduces the mismatch.
 
-No Maven remediation was applied in this checkpoint.
+No Maven remediation was applied in this checkpoint; it remains a separate external infrastructure issue.
 
 ## D) RECOMMENDED NEXT ACTION
 
-Review and approve the smallest test-only fix: make `FakeProvider` return one `WriteFile` response followed by a final assistant response, then run only:
+The smallest test-only fix is complete. Verification was run with:
 
 ```text
 ./gradlew :app:testDebugUnitTest --tests '*AutonomousAgentEngineTest.createUserFile_throughToolCall'
 ```
 
-After that targeted test passes, run the remaining `AutonomousAgentEngineTest` class. Separately, use a preserved isolated Maven cache or a carefully repaired sidecar to verify one representative Robolectric test. Do not rerun the 515-test suite until these targeted checks are green.
+The targeted test passed in 33 seconds, and the complete `AutonomousAgentEngineTest` class passed in 20 seconds. The 515-test suite was not rerun. Maven/Robolectric remains separate and should be investigated only with one representative test and a preserved isolated cache.

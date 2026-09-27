@@ -16,7 +16,8 @@ class AutonomousAgentEngineTest {
     @Test
     fun createUserFile_throughToolCall() = runBlocking {
         val provider = FakeProvider(
-            response = """{"toolCall":{"name":"WriteFile","arguments":{"path":"User.kt","content":"data class User(val name: String)"}}}"""
+            response = """{"toolCall":{"name":"WriteFile","arguments":{"path":"User.kt","content":"data class User(val name: String)"}}}""",
+            finalResponse = "User.kt created successfully"
         )
         val manager = ProviderManager().apply { register(provider) }
         val executor = RecordingExecutor()
@@ -76,14 +77,16 @@ class AutonomousAgentEngineTest {
     private class FakeProvider(
         private val response: String = "",
         private val idValue: String = "primary",
-        private val throwOnGenerate: Boolean = false
+        private val throwOnGenerate: Boolean = false,
+        private val finalResponse: String? = null
     ) : Provider {
         override val id: String = idValue
         override val displayName: String = idValue
         override suspend fun isAvailable(): Boolean = true
+        private var callCount = 0
         override suspend fun generate(prompt: String): String {
             if (throwOnGenerate) throw IllegalStateException("primary failed")
-            return response
+            return if (callCount++ == 0) response else finalResponse ?: response
         }
     }
 
