@@ -98,7 +98,7 @@ def main():
    pre=norm(x,T[f'blk.{layer}.attn_norm.weight']);q=rope(matvec(T[f'blk.{layer}.attn_q.weight'],pre),cfg['H'],64,pos);k=rope(matvec(T[f'blk.{layer}.attn_k.weight'],pre),cfg['K'],64,pos);v=matvec(T[f'blk.{layer}.attn_v.weight'],pre);caches[layer][0].append(k);caches[layer][1].append(v);ks=np.array(caches[layer][0]);vs=np.array(caches[layer][1]);a=np.empty(cfg['H']*64,np.float32)
    for h in range(cfg['H']):
     kh=h//(cfg['H']//cfg['K']); scores=ks[:,kh*64:(kh+1)*64]@q[h*64:(h+1)*64]/math.sqrt(64); scores=np.exp(scores-scores.max());scores/=scores.sum();a[h*64:(h+1)*64]=scores@vs[:,kh*64:(kh+1)*64]
-   x=x+matvec(T[f'blk.{layer}.attn_output.weight'],a);ff=norm(x,T[f'blk.{layer}.ffn_norm.weight']);x=x+matvec(T[f'blk.{layer}.ffn_down.weight'],1/(1+np.exp(-matvec(T[f'blk.{layer}.ffn_gate.weight'],ff)))*matvec(T[f'blk.{layer}.ffn_up.weight'],ff))
+   x=x+matvec(T[f'blk.{layer}.attn_output.weight'],a);ff=norm(x,T[f'blk.{layer}.ffn_norm.weight']);gate=matvec(T[f'blk.{layer}.ffn_gate.weight'],ff);up=matvec(T[f'blk.{layer}.ffn_up.weight'],ff);x=x+matvec(T[f'blk.{layer}.ffn_down.weight'],gate/(1+np.exp(-gate))*up)
   fh=norm(x,outn);log=np.array([np.sum(row(outw,i)*fh,dtype=np.float32) for i in range(int(outw[0][1]))],np.float32);res.append((x.copy(),fh,log));print('python position',pos,'rms',float(np.sqrt(np.mean(x*x))),'argmax',int(log.argmax()),'logit',float(log.max()),flush=True)
  with open('/tmp/waqti_multitoken_py.bin','wb') as o:
   o.write(struct.pack('<III',len(ids),cfg['E'],int(outw[0][1])));[(o.write(x.tobytes()),o.write(y.tobytes()),o.write(z.tobytes())) for x,y,z in res]
