@@ -2,8 +2,8 @@
 
 - Last Updated (UTC): 2026-09-27T15:04:45Z
 - Branch: `waqti-qwen-reference-runtime`
-- Current commit: pending golden-correction commit
-- Remote commit: `bf259fc62cc7f263c1e779c706ddeed49647b9bb` (last verified before this correction)
+- Golden correction commit: `e908749` (`fix: correct independent qwen swiglu golden`)
+- Remote commit: `bf259fc62cc7f263c1e779c706ddeed49647b9bb` (last verified before this correction; push pending)
 - Previous known-good base: `b89a255b37be33096a1ba67a3cff40efcd919b82` (`main`)
 
 ## Current Phase
