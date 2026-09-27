@@ -1,0 +1,36 @@
+# Waqti Runtime — 65% Progress Checkpoint
+
+## Completed in this checkpoint
+
+- GGUF v3 metadata parser with bounded reads and malformed-input rejection.
+- Android CMake integration for `arm64-v8a` and `x86_64`.
+- JNI metadata inspector with an explicit `inferenceSupported=false` contract.
+- Host and Android test fixtures for the JNI boundary.
+- Independent byte-level BPE tokenizer core with deterministic merge ranks.
+- Reference F32 tensor primitives:
+  - matrix multiplication
+  - RMSNorm
+- A small `ToyDenseModel` verification harness that produces token IDs through embedding/projection and greedy decoding.
+- Host CMake/CTest and AddressSanitizer/UndefinedBehaviorSanitizer coverage for all native components.
+
+## Verified
+
+```text
+3/3 CTest tests passed
+all sanitizer tests passed
+git diff --check passed
+```
+
+## Not yet claimed as complete
+
+This checkpoint does **not** mean that Qwen or any GGUF model can generate text on Android. The following remain:
+
+1. Extracting `tokenizer.ggml.tokens` and `tokenizer.ggml.merges` arrays from real GGUF metadata.
+2. GGUF tensor directory validation and mmap/streaming weight access.
+3. Q4_K/Q8/F16 dequantization and optimized ARM kernels.
+4. Transformer block execution, RoPE, attention, and KV cache.
+5. Real sampling, cancellation, and streaming.
+6. A production `LLMProvider` adapter and cloud fallback integration.
+7. Android SDK/NDK APK build and instrumentation execution in an environment with those tools.
+
+`ToyDenseModel` is intentionally a test harness, not a Qwen-compatible transformer.

@@ -1,0 +1,401 @@
+Continue from the current verified Checkpoint 85.
+
+The previous QKV projection task is COMPLETE and verified.
+
+Current proven state:
+
+```text
+Real Qwen2.5-0.5B GGUF
+        ↓
+mmap TensorView
+        ↓
+Tokenizer
+        ↓
+Embedding                    ✅
+        ↓
+RMSNorm                      ✅
+        ↓
+Reference Matrix × Vector    ✅
+        ↓
+Q projection                 ✅
+K projection                 ✅
+V projection                 ✅
+```
+
+Verified numerical differences against an independent scalar Python reference:
+
+```text
+Embedding max abs diff: 4.22e-08
+RMSNorm max abs diff:   4.68e-07
+Q projection:           4.92e-06
+K projection:           4.92e-07
+V projection:           3.78e-08
+```
+
+Tests:
+
+```text
+6/6 CTest PASS
+ASan/UBSan PASS
+git diff --check PASS
+```
+
+Model SHA:
+
+```text
+74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db
+```
+
+Do NOT redo the completed QKV work unless a regression appears.
+
+# NEXT OBJECTIVE
+
+Implement and numerically verify:
+
+```text
+Q/K/V
+ ↓
+Qwen RoPE
+ ↓
+GQA head arrangement
+ ↓
+single-token causal attention
+ ↓
+attention output
+```
+
+Correctness is the only objective.
+
+Do NOT optimize.
+
+Do NOT add:
+
+* NEON
+* Vulkan
+* QNN/NPU
+* MoE
+* expert streaming
+* large models
+* model routing
+* speculative decoding
+* production Android inference
+
+---
+
+# STEP 1 — Full-Precision Intermediate Harness
+
+Before implementing RoPE, improve the reference harness so it can retain and compare complete intermediate vectors rather than relying on printed probes.
+
+For every stage record:
+
+* model SHA
+* prompt
+* token IDs
+* position
+* tensor names
+* dimensions
+* tensor types
+* full vector length
+* max absolute difference
+* mean absolute difference
+* optionally RMS error
+
+The harness must make it possible to identify the FIRST divergent operation.
+
+Do not consider a stage verified merely because the first 8 values look reasonable.
+
+---
+
+# STEP 2 — Verify Attention Dimensions
+
+Use the actual GGUF metadata.
+
+Known model configuration:
+
+```text
+embedding dimension = 896
+attention heads     = 14
+KV heads            = 2
+head dimension     = 64
+```
+
+Verify mathematically:
+
+```text
+14 × 64 = 896
+2 × 64  = 128
+```
+
+Therefore:
+
+```text
+Q dimension = 896
+K dimension = 128
+V dimension = 128
+```
+
+Verify this against the actual tensor metadata and projection outputs.
+
+Document the resulting Grouped Query Attention structure.
+
+There are:
+
+```text
+14 Q heads
+2 KV heads
+7 Q heads per KV head
+```
+
+Do not silently assume this. Verify and document the mapping.
+
+---
+
+# STEP 3 — Implement Qwen RoPE
+
+Inspect the actual GGUF metadata for the RoPE configuration.
+
+Do not blindly hardcode values.
+
+Determine:
+
+* RoPE theta/frequency base
+* rotary dimension
+* position index
+* frequency calculation
+* pair ordering
+* rotation direction/sign
+* interleaved vs non-interleaved layout
+
+Implement the reference version in simple F32 arithmetic.
+
+Start with position 0.
+
+Then test deterministic positions such as:
+
+```text
+position 0
+position 1
+position 2
+```
+
+using deterministic input vectors.
+
+Compare against an independent Python reference.
+
+For position 0 specifically, verify whether the expected rotation behavior matches the model's actual convention.
+
+Do not proceed if RoPE differs materially from the reference.
+
+---
+
+# STEP 4 — Apply RoPE to Real Q/K
+
+Once standalone RoPE is verified:
+
+```text
+Q → RoPE(Q)
+K → RoPE(K)
+```
+
+using the real Q/K vectors from the existing QKV pipeline.
+
+Compare complete vectors against the Python reference.
+
+Record:
+
+```text
+Q RoPE max abs diff
+K RoPE max abs diff
+```
+
+and mean absolute differences.
+
+---
+
+# STEP 5 — GQA Head Arrangement
+
+Reshape:
+
+```text
+Q: [14, 64]
+K: [2, 64]
+V: [2, 64]
+```
+
+and implement the logical GQA relationship:
+
+```text
+Q heads 0..6   → KV head 0
+Q heads 7..13  → KV head 1
+```
+
+Use the exact convention required by the model/reference.
+
+Do not copy K/V unnecessarily if a logical view is sufficient.
+
+For the correctness implementation, however, prioritize clarity over memory optimization.
+
+---
+
+# STEP 6 — Single-Token Causal Attention
+
+Implement the smallest correctness-first attention path.
+
+For the current single token:
+
+```text
+Q
+↓
+RoPE
+↓
+K
+↓
+RoPE
+↓
+Q · Kᵀ
+↓
+scale by 1/sqrt(head_dim)
+↓
+causal handling
+↓
+softmax
+↓
+weighted V
+```
+
+Since this is the first token position, explicitly verify the causal behavior.
+
+The implementation should support the minimal one-token case first.
+
+Do not build a sophisticated production KV cache yet.
+
+---
+
+# STEP 7 — Numerical Comparison
+
+Compare the complete attention computation against the independent Python reference.
+
+At minimum compare:
+
+```text
+RoPE(Q)
+RoPE(K)
+attention scores
+scaled scores
+softmax probabilities
+per-head attention output
+combined attention output
+```
+
+Record:
+
+```text
+max abs difference
+mean abs difference
+RMS error
+```
+
+The first mismatch must be identified.
+
+If there is a mismatch:
+
+STOP.
+
+Investigate in this order:
+
+1. RoPE parameters
+2. RoPE pair convention
+3. Q/K reshape
+4. GQA mapping
+5. dot-product ordering
+6. scaling
+7. softmax
+8. causal mask
+9. floating-point accumulation
+
+Do not proceed to attention output projection until attention itself is numerically verified.
+
+---
+
+# TESTING
+
+After each completed milestone:
+
+```text
+CTest
+ASan/UBSan
+git diff --check
+```
+
+All existing tests must remain green.
+
+Update:
+
+```text
+WAQTI_RUNTIME_PROGRESS_HANDOFF.md
+```
+
+after every completed milestone.
+
+Use:
+
+```text
+STEP X/Y
+Status: COMPLETE
+
+Implemented:
+Evidence:
+Tests:
+Numerical comparison:
+Known limitation:
+Next:
+```
+
+If blocked:
+
+```text
+Status: BLOCKED
+
+Failure:
+Evidence:
+Root cause/hypothesis:
+Attempted fixes:
+Next experiment:
+```
+
+The handoff must remain sufficient for another AI/session to continue without reconstructing this conversation.
+
+# DEFINITION OF DONE
+
+This task is complete only when:
+
+* intermediate harness works
+* Qwen RoPE configuration is verified
+* standalone RoPE matches reference
+* real Q/K RoPE matches reference
+* GQA arrangement is verified
+* single-token causal attention works
+* attention output matches independent reference
+* all existing tests remain green
+* ASan/UBSan remain clean
+* handoff is updated with reproducible evidence
+
+After this task, STOP.
+
+Do NOT proceed to MLP yet.
+
+The next checkpoint should be:
+
+```text
+Q/K/V
+ ↓
+RoPE
+ ↓
+GQA
+ ↓
+Causal Attention
+ ↓
+Verified Attention Output
+```
+
+Implement the actual repository changes now. Build, test, compare numerically, fix failures, and update the handoff with evidence.

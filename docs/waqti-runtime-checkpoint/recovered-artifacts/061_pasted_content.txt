@@ -1,0 +1,346 @@
+أنت الآن تكمل مشروع Waqti Agent / OpenDroid.
+
+الحالة الحالية
+
+تم بنجاح تنفيذ Qwen2.5-0.5B-Instruct Q4_K_M reference forward لجميع الـ24 Transformer layers.
+
+المثبت حاليًا:
+
+GGUF parsing
+
+mmap tensor access
+
+Q5_0 / Q6_K / Q8_0 / Q4_K decoding
+
+RMSNorm
+
+MatVec
+
+RoPE
+
+GQA
+
+causal attention
+
+attention output projection
+
+SwiGLU MLP
+
+residual connections
+
+final RMSNorm
+
+LM head
+
+generic forward_layer(layer_index, ...)
+
+Layers 0–23 كلها تعمل بدون NaN/Inf
+
+CTest: 7/7 PASS
+
+ASan/UBSan: PASS
+
+git diff --check: PASS
+
+Layer 0 تم التحقق منه رقميًا بشكل تفصيلي مقابل Python reference.
+
+لكن ما زال التنفيذ الحالي single-token / position 0 ولا يوجد حتى الآن:
+
+multi-token forward
+
+persistent KV cache
+
+autoregressive generation
+
+sampling
+
+المهمة الحالية
+
+لا تبدأ optimization.
+لا تبدأ NEON/Vulkan/QNN.
+لا تبدأ Android UI integration.
+
+أريد أولًا إنشاء Multi-Token Correctness Harness يثبت أن Waqti يستطيع معالجة sequence من عدة tokens بشكل causal صحيح.
+
+المرحلة 1 — تصميم API متعدد الـtokens
+
+وسّع الـreference runtime بحيث يستطيع استقبال:
+
+token_ids = [t0, t1, t2, ...]
+
+ويحسب الـforward لكل position:
+
+position = 0
+position = 1
+position = 2
+...
+
+مع الحفاظ على causal attention.
+
+لا تعيد كتابة الـTransformer من الصفر.
+
+أعد استخدام:
+
+forward_layer(...)
+RMSNorm
+MatVec
+RoPE
+GQA
+SwiGLU
+residual
+tensor decoder
+
+المرحلة 2 — Multi-token attention
+
+هذه أهم نقطة.
+
+Single-token attention الحالية ليست كافية لأنها لا تختبر فعليًا causal attention بين tokens مختلفة.
+
+نفّذ reference attention بحيث عند position p:
+
+Q(p)
+
+يقارن مع:
+
+K(0), K(1), ..., K(p)
+
+فقط.
+
+ويمنع:
+
+K(p+1), K(p+2), ...
+
+أي:
+
+attention(p) =
+softmax(
+    Q(p) · K(0..p) / sqrt(head_dim)
+)
+· V(0..p)
+
+مع الحفاظ على:
+
+14 Q heads
+
+2 KV heads
+
+head_dim = 64
+
+GQA repeat = 7
+
+RoPE theta = 1e6
+
+interleaved RoPE
+
+causal masking
+
+المرحلة 3 — Reference KV storage
+
+أنشئ بنية واضحة للـKV cache/reference storage.
+
+مثلًا:
+
+struct KVCache {
+    ...
+};
+
+ويجب أن تدعم:
+
+layer
+position
+kv_head
+head_dim
+
+ولا تستخدم implementation optimized في هذه المرحلة.
+
+الهدف هو correctness فقط.
+
+المرحلة 4 — Test sequence صغيرة
+
+ابدأ بـ:
+
+[9707]
+
+ثم:
+
+[9707, 11]
+
+ثم sequence من 4 tokens.
+
+استخدم tokenizer الحقيقي الموجود بالفعل بدل اختراع token IDs عشوائية، إذا كان ذلك متاحًا بسهولة.
+
+اختبر مثلًا prompt قصير مثل:
+
+Hello
+
+ثم prompt أطول بعد نجاح الاختبار الأول.
+
+المرحلة 5 — Independent correctness comparison
+
+لا نحتاج إلى إعادة Python exhaustive validation لكل الـ24 layers.
+
+بدلًا من ذلك:
+
+استخدم Python/reference implementation مستقل لإنتاج golden outputs للـmulti-token test.
+
+قارن على الأقل:
+
+hidden state بعد كل token
+
+final RMSNorm
+
+logits
+
+argmax
+
+top-k logits
+
+لـ4 tokens فقط.
+
+اعرض metrics:
+
+max_abs_error
+mean_abs_error
+RMS_error
+
+لكل token.
+
+إذا ظهرت mismatch:
+
+حدد أول token مختلف.
+
+ثم أول layer مختلف.
+
+ثم stage المختلف:
+
+embedding
+
+RMSNorm
+
+Q/K/V
+
+RoPE
+
+attention
+
+attention projection
+
+residual
+
+MLP
+
+final norm
+
+LM head
+
+لا تعمل full exhaustive trace إلا عند وجود mismatch.
+
+المرحلة 6 — Regression tests
+
+أضف CTest حقيقي للـmulti-token path.
+
+يجب أن يفشل الاختبار إذا:
+
+ظهرت NaN
+
+ظهرت Inf
+
+خرج shape خاطئ
+
+causal masking خاطئ
+
+KV indexing خاطئ
+
+position خاطئ
+
+logits غير finite
+
+mismatch تجاوز tolerance المتفق عليها
+
+أبقِ اختبارات Layer 0 والـ24-layer single-token الموجودة كما هي.
+
+لا تحذف أي regression test ناجح.
+
+المرحلة 7 — Debugging discipline
+
+إذا فشل الاختبار:
+
+لا تعمل workaround.
+
+حدد:
+
+first failing token
+first failing layer
+first failing operation
+
+ثم أصلح السبب الجذري.
+
+إذا احتجت إلى تعديل Q4_K/Q5_0/Q6_K/Q8_0 أو RoPE أو attention، أضف regression test يمنع رجوع الخطأ.
+
+المرحلة 8 — Performance
+
+ممنوع optimization حقيقي في هذه المرحلة.
+
+لكن سجّل:
+
+tokens processed
+time/token
+total forward time
+peak memory
+
+لأغراض baseline فقط.
+
+لا تستخدم benchmark لتغيير architecture الآن.
+
+المرحلة 9 — Required deliverables
+
+في النهاية أريد:
+
+Multi-token reference forward يعمل.
+
+KV cache/reference storage يعمل.
+
+Causal attention يعمل فعليًا عبر عدة positions.
+
+Python golden comparison ناجح.
+
+CTest regression جديد.
+
+ASan/UBSan.
+
+git diff --check.
+
+تقرير مختصر يوضح:
+
+الملفات التي تغيرت
+
+الـAPI الجديدة
+
+شكل KV cache
+
+sequence التي تم اختبارها
+
+numerical errors
+
+tests
+
+أي limitations متبقية
+
+لا تعمل commit أو push إلا إذا كان ذلك مطلوبًا صراحة.
+
+Definition of Done
+
+لا تعتبر المهمة مكتملة لمجرد أن البرنامج نفذ 4 tokens.
+
+المطلوب إثبات أن:
+
+token 0
+token 1
+token 2
+token 3
+
+تمت معالجتهم causal بشكل صحيح، وأن Waqti reference implementation يطابق الـindependent golden reference ضمن tolerance معقولة.
+
+بعد النجاح فقط، توقف.
+
+لا تنتقل إلى generation أو sampling أو optimization أو Android integration في هذه المهمة.

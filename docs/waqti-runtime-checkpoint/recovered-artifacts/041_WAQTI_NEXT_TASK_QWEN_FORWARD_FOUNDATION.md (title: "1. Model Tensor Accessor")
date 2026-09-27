@@ -1,0 +1,240 @@
+Continue directly from the current verified checkpoint.
+
+Current proven state:
+
+* Real Qwen2.5-0.5B-Instruct GGUF
+* mmap-backed tensor access
+* metadata-driven model configuration
+* tensor lookup by name
+* reference F32/F16/Q5_0/Q8_0 decoding
+* real Qwen tensors successfully decoded
+* 5/5 CTest passing
+* Tensor decoder ASan/UBSan passing
+* git diff --check passing
+
+The next task is exactly the one already recorded in the handoff:
+
+```text
+model tensor accessor
+    ↓
+real embedding row
+    ↓
+RMSNorm
+    ↓
+reference matrix-vector
+```
+
+## 1. Model Tensor Accessor
+
+Build a small model-level accessor over the existing GGUF/tensor decoder layers.
+
+It must:
+
+* resolve tensors by exact name
+* expose dimensions
+* expose tensor type
+* decode/access values through the existing reference decoder
+* avoid unnecessary full-tensor copies
+* keep mmap as the source of truth
+
+Do not build a large tensor framework.
+
+## 2. Real Embedding Lookup
+
+Use the actual:
+
+```text
+token_embd.weight
+```
+
+from the real Qwen model.
+
+For a fixed tokenizer-produced token ID:
+
+```text
+token_id
+→ token_embd.weight[token_id]
+→ embedding[896]
+```
+
+Verify:
+
+* token ID
+* row offset
+* embedding dimension
+* first N values
+* max absolute error
+* mean absolute error
+
+Compare against a trusted reference implementation.
+
+Do not accept visual/plausibility checks as proof.
+
+## 3. RMSNorm
+
+Implement the exact Qwen RMSNorm required by this model.
+
+Use:
+
+```text
+rms_epsilon = 1e-6
+```
+
+unless the actual metadata says otherwise.
+
+Validate the operation independently and then apply it to the real embedding.
+
+Compare the resulting 896-element vector against reference values.
+
+If there is a mismatch, stop and find the first divergent operation before continuing.
+
+## 4. Reference Matrix × Vector
+
+Implement a simple correctness-first matrix-vector path.
+
+Support the actual tensor formats required by the Qwen weights:
+
+* Q5_0
+* Q8_0
+* F32
+* F16
+
+The path may dequantize values to F32 for now.
+
+Do NOT optimize yet.
+
+Test at least:
+
+```text
+blk.0.attn_q.weight
+blk.0.attn_k.weight
+```
+
+against a trusted reference.
+
+Pay particular attention to:
+
+* GGUF tensor dimensions
+* row/column interpretation
+* quantization block layout
+* transpose conventions
+* output dimensions
+
+The goal is to prove:
+
+```text
+real input vector
+×
+real Qwen weight
+=
+correct Qwen projection vector
+```
+
+## 5. First Attention Inputs
+
+Once embedding + RMSNorm + matrix-vector are numerically correct, use the real:
+
+```text
+blk.0.attn_q.weight
+blk.0.attn_k.weight
+blk.0.attn_v.weight
+```
+
+to produce Q/K/V for layer 0.
+
+Do not implement the complete attention mechanism yet unless the projection results are already verified.
+
+For now establish:
+
+```text
+normalized hidden state
+        ↓
+Q projection
+K projection
+V projection
+```
+
+with numerical comparison evidence.
+
+## Testing
+
+After every meaningful stage:
+
+* run CTest
+* run ASan/UBSan
+* run `git diff --check`
+* preserve all previous tests
+
+For every numerical comparison record:
+
+* model SHA
+* prompt/token ID
+* tensor name
+* dimensions
+* tensor type
+* backend/path
+* max absolute error
+* mean absolute error
+* tolerance
+* pass/fail
+
+## Progress Reporting
+
+Update:
+
+`WAQTI_RUNTIME_PROGRESS_HANDOFF.md`
+
+after each completed milestone.
+
+Use:
+
+```text
+STEP X/Y
+Status: COMPLETE
+
+Implemented:
+Evidence:
+Tests:
+Numerical comparison:
+Known limitation:
+Next:
+```
+
+If blocked:
+
+```text
+Status: BLOCKED
+Failure:
+Evidence:
+Root cause/hypothesis:
+Attempted fixes:
+Next experiment:
+```
+
+## Strict Scope
+
+Do NOT add yet:
+
+* NEON optimization
+* Vulkan inference
+* QNN/NPU
+* MoE
+* expert streaming
+* large models
+* routing
+* speculative decoding
+* production Android inference
+
+Correctness first.
+
+The immediate target is:
+
+```text
+Real Qwen token
+→ real embedding
+→ real RMSNorm
+→ real matrix-vector
+→ verified Q/K/V projection
+```
+
+Implement this in the actual repository now. Build it, test it, compare it numerically, fix failures, and update the handoff with evidence.

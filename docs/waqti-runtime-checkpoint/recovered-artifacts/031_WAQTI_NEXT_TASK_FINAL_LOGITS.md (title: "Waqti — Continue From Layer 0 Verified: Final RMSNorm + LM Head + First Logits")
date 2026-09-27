@@ -1,0 +1,636 @@
+# Waqti — Continue From Layer 0 Verified: Final RMSNorm + LM Head + First Logits
+
+أنت تكمل من آخر checkpoint بعد نجاح **Layer 0 بالكامل حتى Second Residual**.
+
+## Current verified state
+
+المسار الحقيقي أصبح:
+
+```text
+Embedding
+  ↓
+Pre-attention RMSNorm
+  ↓
+Q/K/V
+  ↓
+RoPE
+  ↓
+GQA
+  ↓
+Causal Attention
+  ↓
+Attention Output Projection
+  ↓
+Attention Residual
+  ↓
+Post-attention RMSNorm
+  ↓
+SwiGLU MLP
+  ↓
+Second Residual
+```
+
+والـLayer 0 numerical trace تم التحقق منه بالكامل.
+
+آخر النتائج:
+
+```text
+Post-attention RMSNorm:
+max_abs_diff = 5.6505e-06
+mean_abs_diff = 5.0710e-07
+RMS = 6.6702e-07
+
+Gate:
+max_abs_diff = 3.8647e-06
+mean_abs_diff = 4.0701e-07
+RMS = 5.6522e-07
+
+Up:
+max_abs_diff = 3.9792e-06
+mean_abs_diff = 4.3690e-07
+RMS = 5.8370e-07
+
+SwiGLU intermediate:
+max_abs_diff = 5.0617e-06
+mean_abs_diff = 1.9734e-07
+RMS = 4.0123e-07
+
+MLP down:
+max_abs_diff = 2.2504e-06
+mean_abs_diff = 3.8300e-07
+RMS = 5.0904e-07
+
+Second residual:
+max_abs_diff = 2.2479e-06
+mean_abs_diff = 3.8272e-07
+RMS = 5.0846e-07
+```
+
+Model:
+
+```text
+Qwen2.5-0.5B-Instruct Q4_K_M
+
+SHA-256:
+74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db
+```
+
+Prompt:
+
+```text
+Hello
+```
+
+Token:
+
+```text
+9707
+```
+
+Tests:
+
+```text
+7/7 CTest passed
+Q6_K ASan/UBSan PASS
+Attention ASan/UBSan PASS
+git diff --check PASS
+```
+
+Do not redo successful Layer 0 stages unless a regression appears.
+
+---
+
+# Objective
+
+Implement and verify:
+
+```text
+Second Residual
+      ↓
+Final RMSNorm
+      ↓
+LM Head
+      ↓
+Logits [vocab_size]
+      ↓
+argmax / diagnostic token
+```
+
+Do NOT implement a generation loop yet.
+
+The immediate goal is to obtain the first numerically verified logits vector from the real Qwen model.
+
+---
+
+# Phase 1 — Verify Final RMSNorm architecture
+
+Before coding, inspect the actual GGUF metadata and tensor directory.
+
+Identify the exact final norm tensor.
+
+Do not assume its name.
+
+For Qwen-style models it may be something similar to:
+
+```text
+output_norm.weight
+```
+
+but verify the actual tensor name from this GGUF.
+
+Record:
+
+```text
+tensor name
+tensor type
+shape
+epsilon
+```
+
+The hidden size should be:
+
+```text
+896
+```
+
+but verify it.
+
+---
+
+# Phase 2 — Implement Final RMSNorm
+
+Input:
+
+```text
+x2 = second_residual
+```
+
+Apply the exact final RMSNorm:
+
+```text
+mean_square = sum(x2_i²) / hidden_size
+
+inv_rms = 1 / sqrt(mean_square + epsilon)
+
+normalized_i = x2_i * inv_rms
+
+final_hidden_i = normalized_i * final_norm_weight_i
+```
+
+Use the already verified RMSNorm reference implementation where possible.
+
+Do not create a second independent implementation unless necessary.
+
+Use F32 reference arithmetic.
+
+---
+
+# Phase 3 — Independent numerical verification
+
+Generate a complete 896-element trace:
+
+```text
+final_hidden
+```
+
+Compare C++ against an independent scalar Python implementation.
+
+Record:
+
+```text
+max_abs_diff
+mean_abs_diff
+RMS_error
+```
+
+Also record:
+
+```text
+input shape
+output shape
+epsilon
+tensor name
+tensor type
+```
+
+If mismatch occurs:
+
+STOP.
+
+Debug only this stage.
+
+Do not proceed to LM head until Final RMSNorm matches.
+
+---
+
+# Phase 4 — Identify the actual LM head
+
+Inspect the GGUF tensor directory.
+
+Find the exact output tensor used to transform:
+
+```text
+896 → vocab_size
+```
+
+Likely candidates may include:
+
+```text
+output.weight
+```
+
+but this MUST be verified against the actual model.
+
+Record:
+
+```text
+name
+type
+shape
+input dimension
+output dimension
+```
+
+The vocabulary size should be consistent with the tokenizer/model metadata.
+
+Previously observed:
+
+```text
+vocab = 151936
+```
+
+but verify again.
+
+---
+
+# Phase 5 — Determine weight tying
+
+Before implementing LM head, determine whether the model uses:
+
+```text
+output.weight
+```
+
+as a separate tensor or whether the output projection is tied to:
+
+```text
+token_embd.weight
+```
+
+Do not assume.
+
+Inspect:
+
+* GGUF metadata
+* tensor presence
+* tensor shapes
+* model architecture information
+
+Document the conclusion.
+
+This matters because the LM head implementation and expected values depend on it.
+
+---
+
+# Phase 6 — LM Head reference implementation
+
+Implement:
+
+```text
+logits = W_out × final_hidden
+```
+
+using:
+
+```text
+input = 896
+output = vocab_size
+```
+
+Use the existing tensor decoder.
+
+Do NOT copy the entire 151936 × 896 matrix into RAM.
+
+Continue using mmap + on-demand tensor decoding.
+
+Use F32 accumulation.
+
+No NEON.
+
+No Vulkan.
+
+No QNN.
+
+No GPU/NPU.
+
+No optimization.
+
+---
+
+# Phase 7 — Full logits trace
+
+Generate the complete logits vector:
+
+```text
+[vocab_size]
+```
+
+For this model that is expected to be approximately:
+
+```text
+151936
+```
+
+but verify the exact dimension.
+
+Write a binary or otherwise machine-readable trace containing:
+
+```text
+token ID
+logit
+```
+
+for every vocabulary entry.
+
+Also record:
+
+```text
+max logit
+min logit
+mean
+argmax token ID
+top-k token IDs
+top-k logits
+```
+
+Do not interpret the token semantically until tokenizer decoding verifies it.
+
+---
+
+# Phase 8 — Independent Python verification
+
+Build an independent Python scalar reference for:
+
+```text
+final_hidden
+        ↓
+LM head
+        ↓
+logits
+```
+
+Do not call the C++ implementation from Python.
+
+Use the same GGUF file but independently decode the required tensor.
+
+Compare the COMPLETE logits vector.
+
+Record:
+
+```text
+max_abs_diff
+mean_abs_diff
+RMS_error
+```
+
+Also verify:
+
+```text
+argmax_cpp == argmax_python
+```
+
+and compare top-k ordering.
+
+A small number of nearly tied logits may differ in ordering due to floating-point precision, so document any such case rather than silently hiding it.
+
+---
+
+# Phase 9 — First correct token
+
+If:
+
+```text
+argmax_cpp == argmax_python
+```
+
+and the full logits comparison is within expected floating-point error:
+
+mark:
+
+```text
+FIRST_CORRECT_LOGITS: VERIFIED
+```
+
+Do NOT yet claim that generation is implemented.
+
+At this stage we have:
+
+```text
+prompt
+ ↓
+tokenization
+ ↓
+Layer 0
+ ↓
+final norm
+ ↓
+LM head
+ ↓
+logits
+ ↓
+verified argmax
+```
+
+This is the first complete end-to-end inference signal for the current single-token/Layer-0 slice.
+
+---
+
+# Important architecture limitation
+
+This Qwen model has many transformer blocks.
+
+The current implementation has only:
+
+```text
+Layer 0
+```
+
+plus final norm/LM head.
+
+Therefore:
+
+**Do NOT claim this produces the model's true final autoregressive prediction yet.**
+
+The final norm + LM head are being applied to the output of Layer 0 only.
+
+The purpose of this task is to validate the remaining operators and establish a correct logits pipeline before implementing the remaining transformer blocks.
+
+Document this limitation clearly.
+
+---
+
+# Testing
+
+Run:
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+Then:
+
+```text
+ASan
+UBSan
+```
+
+Then:
+
+```bash
+git diff --check
+```
+
+All must pass.
+
+---
+
+# Full intermediate trace
+
+Preserve the existing Layer 0 trace and extend it with:
+
+```text
+second_residual
+final_norm
+logits
+```
+
+The complete diagnostic chain should now be:
+
+```text
+embedding
+pre_attention_norm
+Q
+K
+V
+RoPE(Q)
+RoPE(K)
+attention_scores
+attention_probabilities
+attention_heads
+attention_concat
+attention_projected
+attention_residual
+post_attention_norm
+gate
+up
+SiLU
+SwiGLU_intermediate
+mlp_down
+second_residual
+final_norm
+logits
+```
+
+Every major vector must have numerical comparison evidence.
+
+---
+
+# Update handoff
+
+Update:
+
+```text
+WAQTI_RUNTIME_PROGRESS_HANDOFF.md
+```
+
+Create/update the checkpoint document, for example:
+
+```text
+WAQTI_RUNTIME_105_PROGRESS.md
+```
+
+Record:
+
+* model SHA
+* prompt
+* token ID
+* final norm tensor
+* LM head tensor
+* tensor types
+* tensor shapes
+* vocabulary size
+* weight tying result
+* final norm numerical errors
+* full logits numerical errors
+* argmax comparison
+* top-k comparison
+* tests
+* ASan/UBSan
+* git diff --check
+* limitation that only Layer 0 has been executed
+
+---
+
+# Strict boundaries
+
+Do NOT implement:
+
+* full 24-layer forward
+* generation loop
+* sampling
+* KV cache
+* multi-token inference
+* speculative decoding
+* NEON
+* Vulkan
+* QNN
+* Hexagon
+* NPU
+* GPU acceleration
+* MoE
+* expert streaming
+* performance optimization
+* Android production inference
+
+Not yet.
+
+The immediate objective is correctness of:
+
+```text
+Second Residual
+      ↓
+Final RMSNorm
+      ↓
+LM Head
+      ↓
+Complete logits vector
+      ↓
+Verified argmax
+```
+
+---
+
+# Definition of Done
+
+Stop when all of the following are true:
+
+```text
+[✓] Second Residual verified
+[✓] Final RMSNorm implemented
+[✓] Final RMSNorm independently verified
+[✓] LM head identified
+[✓] Weight tying verified
+[✓] LM head implemented
+[✓] Complete logits vector generated
+[✓] Complete logits independently compared
+[✓] C++ argmax matches Python
+[✓] Top-k checked
+[✓] CTest PASS
+[✓] ASan/UBSan PASS
+[✓] git diff --check PASS
+[✓] handoff updated
+```
+
+Then STOP and report the exact numerical evidence.
+
+Do not proceed to full 24-layer inference until this checkpoint is reviewed.

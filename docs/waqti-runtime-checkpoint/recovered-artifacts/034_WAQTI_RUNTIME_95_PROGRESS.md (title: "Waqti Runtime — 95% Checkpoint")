@@ -1,0 +1,28 @@
+# Waqti Runtime — 95% Checkpoint
+
+## Checkpoint 90 → attention output projection/residual
+
+The single-token attention output is explicitly concatenated as 14 heads × 64 values = 896 values. The real tensor `blk.0.attn_output.weight` is then applied through the existing reference matvec path. Its actual GGUF representation is Q5_0 with dimensions 896 × 896. Finally, the Qwen pre-attention residual input (the real embedding row) is added in F32.
+
+For the fixed prompt `Hello` and token ID `9707`, a binary C++ trace containing all 896 values of `attention_concat`, `attention_projected`, and `residual_output` was compared to an independent scalar Python decoder. The Python decoder independently decoded the real Q8_0 V projection, formed the GQA concatenation, decoded the real Q5_0 output projection, and added the real embedding residual.
+
+```text
+attention_concat: max_abs=6.0111e-08, mean_abs=1.0204e-08, RMS=1.4780e-08
+attention_projected: max_abs=5.6541e-08, mean_abs=7.6497e-09, RMS=1.0230e-08
+attention_residual: max_abs=5.6541e-08, mean_abs=7.6853e-09, RMS=1.0292e-08
+```
+
+The differences are normal F32 accumulation and serialized comparison noise. The first projected values are `0.00821233, 0.0209707, 0.0104474, -0.00248324`; the first residual values are `-0.0166213, 0.0474599, -0.0110751, 0.0107614`.
+
+## Verification
+
+```text
+CTest: 7/7 passed
+Attention reference ASan/UBSan: PASS
+git diff --check: PASS
+Model SHA-256: 74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db
+```
+
+## Architecture boundary
+
+Qwen2.5 uses pre-attention RMSNorm → attention → output projection → residual → post-attention RMSNorm → MLP → residual. The post-attention norm and MLP are intentionally not implemented in this checkpoint. No NEON, Vulkan, QNN/NPU, MoE, routing, LM head, generation, or production Android inference has been added.

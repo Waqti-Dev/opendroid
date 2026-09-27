@@ -1,0 +1,1124 @@
+# WAQTI — EXPERIMENTAL RESEARCH & MVP ACCELERATION DIRECTIVE
+
+## 1. Core Principle
+
+Do NOT limit Waqti's technical possibilities to officially supported, mainstream, or production-ready implementations.
+
+Your job is to maximize the probability of reaching a **working Waqti MVP on real Android hardware**.
+
+A technology does NOT need to be:
+
+* officially supported by the manufacturer
+* production-ready
+* fully documented
+* perfectly optimized
+* widely adopted
+* completely implemented
+
+to deserve investigation.
+
+If there is a technically credible path with even a **~30% estimated probability of working**, investigate it, prototype it, and test it whenever the cost and risk are reasonable.
+
+The goal is:
+
+> **Research broadly → identify plausible paths → prototype aggressively → measure reality → keep what works.**
+
+Do not reject an approach merely because it is unconventional.
+
+---
+
+# 2. Expand the Research Scope
+
+For every major Waqti subsystem, search broadly across:
+
+* official documentation
+* Android documentation
+* Android NDK
+* AOSP
+* Linux kernel
+* Qualcomm documentation
+* Qualcomm AI/QNN documentation
+* Snapdragon SDKs
+* Vulkan
+* OpenCL where relevant
+* NNAPI / Android AI APIs
+* NPU runtimes
+* GPU compute APIs
+* ARM documentation
+* compiler projects
+* MLIR
+* LLVM
+* TVM
+* MLC
+* ExecuTorch
+* ONNX Runtime
+* TensorFlow Lite / LiteRT
+* llama.cpp
+* GGML/GGUF ecosystem
+* MLC-LLM
+* MediaPipe
+* vendor-specific runtimes
+* GitHub repositories
+* academic papers
+* technical blogs
+* developer discussions
+* Reddit/community reports
+* GitHub issues
+* pull requests
+* benchmarks
+* reverse-engineering research
+* experimental Android projects
+* device-specific projects
+* abandoned projects that contain useful implementation ideas
+
+Do not search only for projects that already claim:
+
+> "Android + this exact SoC + this exact model + production ready."
+
+That search strategy is too restrictive.
+
+Instead search for the underlying capability.
+
+Example:
+
+Do not search only for:
+
+> "Xring O3 LLM inference runtime"
+
+Also investigate:
+
+> Android ARM64 inference
+> Mali/Immortalis GPU compute
+> NPU access Android
+> vendor AI runtime
+> custom Vulkan tensor kernels
+> memory mapped tensor execution
+> direct I/O Android
+> asynchronous file I/O
+> sparse MoE expert streaming
+> ARM NEON transformer kernels
+> GPU GEMM Android
+> tensor compiler Android
+> MLIR Android backend
+> custom operator runtime
+> Android hardware acceleration
+
+The underlying mechanism may be reusable even if nobody has packaged it as an LLM runtime.
+
+---
+
+# 3. Probability-Based Engineering
+
+For every unconventional approach, estimate:
+
+### Probability of technical success
+
+Use rough categories:
+
+* 0–10% → usually ignore unless extremely valuable
+* 10–30% → investigate if cheap
+* 30–50% → prototype
+* 50–70% → actively pursue
+* 70–90% → strong candidate
+* 90%+ → preferred baseline
+
+These are engineering estimates, NOT facts.
+
+Never pretend that an estimate is a benchmark.
+
+For every experimental path record:
+
+```text
+Approach:
+Why it might work:
+Evidence:
+Unknowns:
+Estimated probability:
+Implementation cost:
+Expected benefit:
+Risk:
+Test required:
+Decision:
+```
+
+---
+
+# 4. The 30% Rule
+
+If an approach has approximately a **30% chance of working** and:
+
+* can be tested quickly,
+* does not destroy the existing implementation,
+* does not require dangerous or irreversible changes,
+* produces useful information even if it fails,
+
+THEN TEST IT.
+
+Do not spend days debating whether it might work.
+
+Build the smallest possible experiment.
+
+For example:
+
+If direct access to a hardware accelerator is uncertain:
+
+DO NOT say:
+
+> "There is no official documentation, therefore unsupported."
+
+Instead:
+
+1. Search AOSP.
+2. Search Android system services.
+3. Search vendor libraries.
+4. Search installed shared libraries.
+5. Inspect available APIs.
+6. Inspect device capabilities.
+7. Search GitHub.
+8. Search issues and reverse-engineering work.
+9. Build a minimal probe.
+10. Execute the probe on real hardware.
+11. Measure.
+12. Decide based on evidence.
+
+---
+
+# 5. Experiment Before Architecture
+
+Do not design the entire Waqti architecture around assumptions.
+
+For uncertain capabilities:
+
+### Build micro-benchmarks first.
+
+Examples:
+
+```text
+Can this backend execute matrix multiplication?
+Can this API allocate large buffers?
+Can this GPU execute FP16 compute?
+Can this NPU execute a transformer-compatible operator?
+Can Android perform direct/asynchronous file reads?
+Can we stream expert weights without page-cache pollution?
+Can multiple experts remain resident?
+How much RAM is actually available?
+What is the sustainable memory bandwidth?
+What is the sustainable storage throughput?
+What happens after thermal throttling?
+Can we overlap I/O and compute?
+Can we use Vulkan for specific operators?
+Can we use QNN for specific operators?
+Can we use CPU NEON for fallback operators?
+```
+
+Each answer should come from an experiment whenever possible.
+
+---
+
+# 6. Real Hardware > Assumptions
+
+If physical hardware is available:
+
+**Test it.**
+
+Do not infer actual performance from:
+
+* AnTuTu
+* theoretical TOPS
+* theoretical FLOPS
+* marketing claims
+* desktop benchmarks
+* different phones
+* different Android versions
+* different RAM configurations
+* different thermal environments
+
+These can guide hypotheses, but they cannot replace measurements.
+
+Record:
+
+```text
+Device
+SoC
+RAM
+Storage
+Android version
+Kernel version
+Temperature
+Battery state
+Thermal state
+Backend
+Model
+Quantization
+Context length
+Prompt
+Tokens generated
+Prefill speed
+Decode speed
+Peak RAM
+Average RAM
+Storage bandwidth
+Power/thermal behavior
+```
+
+---
+
+# 7. Don't Optimize Only for Tokens/Second
+
+Waqti is an autonomous coding agent.
+
+Therefore the primary metric is:
+
+> **Time to successful task completion**
+
+not:
+
+> raw tokens/second.
+
+Evaluate:
+
+```text
+Task success
+Code correctness
+Reasoning quality
+Tool use
+Repository understanding
+Number of iterations
+Build success
+Test success
+Error recovery
+Context retention
+Total wall-clock time
+```
+
+A model generating 10 tok/s but requiring five failed attempts may be worse for Waqti than a model generating 3 tok/s that completes the task correctly on the first attempt.
+
+---
+
+# 8. Research Models by Capability, Not Parameter Count
+
+Do NOT select models merely because they are:
+
+* small
+* fast
+* low parameter count
+* easy to load
+
+Evaluate:
+
+```text
+Coding ability
+Reasoning
+Agentic behavior
+Tool calling
+Repository understanding
+Long-context behavior
+Instruction following
+Error recovery
+Multi-file editing
+Terminal usage
+Planning
+Self-review
+Reliability
+Memory requirements
+Inference speed
+```
+
+A 30B MoE model may be preferable to a much smaller dense model if it produces substantially better coding results while remaining practical.
+
+Likewise, a 120B sparse MoE model must NOT be rejected solely because:
+
+> "120B is too large for a phone."
+
+Investigate:
+
+* active parameter count
+* quantization
+* expert sparsity
+* shared weights
+* expert streaming
+* cache strategy
+* UFS throughput
+* prefetch
+* RAM residency
+* compute/I/O overlap
+
+Then TEST.
+
+---
+
+# 9. Treat Large MoE Models as Experimental Candidates
+
+For sparse MoE models:
+
+```text
+Total Parameters
+        ≠
+Active Parameters
+        ≠
+RAM Requirement
+        ≠
+Compute Requirement
+```
+
+Analyze all four independently.
+
+Investigate architectures where:
+
+* only selected experts are needed per token
+* experts can be streamed from storage
+* shared weights remain resident
+* hot experts remain cached
+* cold experts remain on UFS
+* asynchronous I/O overlaps with computation
+* predictive prefetch loads likely next experts
+
+Potential architecture:
+
+```text
+             Model on UFS
+                  │
+                  ▼
+          Expert Selection
+                  │
+          ┌───────┴────────┐
+          ▼                ▼
+     Hot Expert       Cold Expert
+        Cache             │
+          │               ▼
+          │          Async UFS Read
+          │               │
+          └───────┬───────┘
+                  ▼
+             Compute
+                  │
+                  ▼
+             Next Layer
+```
+
+Do not assume this will work.
+
+Prototype it.
+
+Measure it.
+
+---
+
+# 10. Search for Partial Solutions
+
+A project does NOT need to provide the complete Waqti solution to be useful.
+
+A project that solves only:
+
+* expert streaming
+* GPU kernels
+* KV cache
+* quantization
+* direct I/O
+* model loading
+* Vulkan execution
+* NPU execution
+* memory management
+* Android JNI
+* transformer kernels
+
+may contain an important piece of the final architecture.
+
+Extract the idea.
+
+Understand the implementation.
+
+Then implement the appropriate capability inside Waqti.
+
+Do not blindly copy entire external projects.
+
+---
+
+# 11. External Projects Are Research References
+
+Use external projects aggressively for:
+
+* algorithms
+* architecture ideas
+* benchmarks
+* kernel implementations
+* file formats
+* optimization techniques
+* memory strategies
+* scheduling techniques
+* hardware detection
+* operator implementations
+
+But maintain Waqti's architectural ownership.
+
+For every borrowed implementation:
+
+```text
+Project:
+Version/commit:
+License:
+Relevant component:
+What we learned:
+What we reused:
+What we reimplemented:
+Compatibility:
+Attribution required:
+```
+
+Never copy code without checking its license.
+
+---
+
+# 12. Build Multiple Backends
+
+Do not assume there will be one universal execution backend.
+
+Design Waqti around:
+
+```text
+             Waqti Runtime
+                   │
+        ┌──────────┼───────────┐
+        ▼          ▼           ▼
+       CPU        GPU         NPU
+        │          │           │
+      NEON       Vulkan     Vendor API
+```
+
+Then allow hybrid execution.
+
+Example:
+
+```text
+CPU:
+routing
+control
+unsupported operators
+
+GPU:
+large matrix operations
+
+NPU:
+supported AI operators
+
+UFS:
+expert storage
+```
+
+The runtime should decide dynamically.
+
+---
+
+# 13. Hardware Capability Discovery
+
+At startup Waqti should determine:
+
+```text
+CPU architecture
+CPU cores
+NEON availability
+RAM
+available RAM
+memory bandwidth
+GPU
+GPU API
+GPU capabilities
+NPU availability
+NPU API
+Android version
+kernel version
+storage type
+storage throughput
+thermal status
+battery status
+supported precisions
+```
+
+Then create a device profile.
+
+Example:
+
+```text
+WAQTI_DEVICE_PROFILE
+
+CPU = ARM64
+RAM = 16 GB
+STORAGE = UFS 4.1
+GPU = ...
+NPU = ...
+FP16 = yes
+INT8 = yes
+BF16 = ...
+VULKAN = ...
+QNN = ...
+THERMAL_HEADROOM = ...
+```
+
+Use this profile to automatically select runtime strategies.
+
+---
+
+# 14. Implement a Fallback Ladder
+
+Every important capability should have fallbacks.
+
+Example:
+
+```text
+Best:
+NPU
+
+↓ if unavailable
+
+GPU
+
+↓ if unsupported
+
+CPU NEON
+
+↓ if optimized kernel unavailable
+
+Generic CPU
+
+↓ if still unsupported
+
+Experimental implementation
+```
+
+Waqti should degrade gracefully instead of completely failing because one accelerator is unavailable.
+
+---
+
+# 15. Build the Smallest Working Vertical Slice First
+
+The objective is NOT:
+
+> build the perfect runtime.
+
+The objective is:
+
+> **reach the first real Waqti MVP as quickly as possible.**
+
+Therefore prioritize this sequence:
+
+### MVP-0
+
+```text
+Android app
+   ↓
+Waqti Runtime
+   ↓
+Load one real model
+   ↓
+Generate tokens
+   ↓
+Streaming output
+```
+
+### MVP-1
+
+```text
+Model
+   ↓
+Runtime
+   ↓
+Tool calling
+   ↓
+Terminal
+   ↓
+File operations
+```
+
+### MVP-2
+
+```text
+Repository
+   ↓
+Inspect
+   ↓
+Plan
+   ↓
+Edit
+   ↓
+Build
+   ↓
+Read errors
+   ↓
+Fix
+   ↓
+Retest
+```
+
+### MVP-3
+
+```text
+Model Router
+   ↓
+Fast model
+   +
+Coding model
+   +
+Fallback model
+```
+
+### MVP-4
+
+```text
+MoE
+   ↓
+Expert cache
+   ↓
+Expert streaming
+   ↓
+Prefetch
+```
+
+### MVP-5
+
+```text
+Hardware-aware runtime
+   ↓
+CPU/GPU/NPU
+   ↓
+Automatic tuning
+```
+
+Do not block MVP-0 waiting for MVP-5.
+
+---
+
+# 16. Every Failed Experiment Is Useful
+
+A failed experiment must produce information.
+
+Do NOT simply write:
+
+> "It doesn't work."
+
+Record:
+
+```text
+Hypothesis
+Experiment
+Environment
+Expected result
+Actual result
+Logs
+Failure reason
+What was learned
+Next experiment
+```
+
+Example:
+
+```text
+Hypothesis:
+Vulkan FP16 GEMM can accelerate the attention projection.
+
+Result:
+Kernel executes successfully but is slower than NEON.
+
+Conclusion:
+GPU dispatch overhead dominates for this tensor size.
+
+Next:
+Benchmark larger tensor sizes and investigate kernel fusion.
+```
+
+This is valuable engineering progress.
+
+---
+
+# 17. Maintain an Experimental Lab
+
+Create:
+
+```text
+waqti/
+  experiments/
+    hardware/
+    inference/
+    moe/
+    storage/
+    gpu/
+    npu/
+    memory/
+    thermal/
+    models/
+    agent/
+```
+
+Each experiment must be:
+
+* isolated
+* reproducible
+* measurable
+* documented
+
+Prefer tiny experiments over huge speculative implementations.
+
+---
+
+# 18. Use a Research Funnel
+
+For every major idea:
+
+```text
+SEARCH
+  ↓
+COLLECT EVIDENCE
+  ↓
+ESTIMATE FEASIBILITY
+  ↓
+MICRO-PROTOTYPE
+  ↓
+BENCHMARK
+  ↓
+COMPARE
+  ↓
+INTEGRATE OR DISCARD
+```
+
+Do not jump directly from:
+
+> "I found a GitHub repository"
+
+to:
+
+> "Let's integrate the entire project."
+
+---
+
+# 19. Optimize for Information Gain
+
+When choosing what to implement next, prioritize experiments that answer high-impact unknowns.
+
+For example:
+
+If we don't know whether UFS expert streaming is viable, testing a 120B MoE streaming prototype may provide more useful information than spending two days optimizing a 9B dense model.
+
+If we don't know whether the GPU backend can outperform CPU, build a tiny GEMM benchmark first.
+
+If we don't know whether the NPU can execute useful transformer operators, build a capability probe.
+
+Always ask:
+
+> "What experiment will reduce the most uncertainty for the least effort?"
+
+---
+
+# 20. Do Not Get Trapped by Conventional Architecture
+
+If the conventional path is:
+
+```text
+RAM → all weights → CPU → inference
+```
+
+but hardware constraints make it impractical, investigate:
+
+```text
+UFS → streamed weights → cache → compute
+```
+
+If CPU-only is too slow:
+
+```text
+CPU + GPU
+```
+
+If GPU support is incomplete:
+
+```text
+CPU + selective GPU
+```
+
+If NPU cannot run the full graph:
+
+```text
+NPU for supported operators
++
+CPU fallback
+```
+
+If one model cannot fit:
+
+```text
+Multiple quantization levels
++
+streaming
++
+dynamic model loading
+```
+
+If a standard API is unavailable:
+
+```text
+AOSP
++
+NDK
++
+vendor libraries
++
+system interfaces
++
+experimental probing
+```
+
+Explore the engineering space before concluding that something is impossible.
+
+---
+
+# 21. MVP First, Perfection Later
+
+Do NOT spend weeks trying to build:
+
+* perfect compiler infrastructure
+* perfect NPU support
+* perfect GPU kernels
+* perfect expert scheduler
+* perfect memory manager
+
+before Waqti can actually perform a coding task.
+
+The minimum useful loop is:
+
+```text
+User
+ ↓
+Waqti
+ ↓
+Model
+ ↓
+Understand task
+ ↓
+Inspect repository
+ ↓
+Modify code
+ ↓
+Build
+ ↓
+Observe failure
+ ↓
+Fix
+ ↓
+Build again
+ ↓
+Success
+```
+
+Get this working first.
+
+Then optimize the runtime underneath it.
+
+---
+
+# 22. Definition of "Working"
+
+Waqti MVP is considered real only when it can demonstrate:
+
+1. Load a real model.
+2. Generate a response.
+3. Stream output.
+4. Execute at least one tool.
+5. Read a file.
+6. Modify a file.
+7. Run a build/test command.
+8. Read the resulting error.
+9. Make a correction.
+10. Successfully complete a small coding task.
+
+A screenshot of an app UI is NOT sufficient.
+
+A successful model load is NOT sufficient.
+
+A benchmark without agent functionality is NOT sufficient.
+
+The target is an actual end-to-end coding-agent loop.
+
+---
+
+# 23. Continuous Execution Rule
+
+Do not stop after discovering a possible solution.
+
+For every major discovery:
+
+```text
+Research
+→ Prototype
+→ Build
+→ Run
+→ Measure
+→ Integrate
+→ Test
+```
+
+If blocked:
+
+```text
+Investigate
+→ Find alternative
+→ Prototype alternative
+→ Continue
+```
+
+Do not wait for perfect information.
+
+Do not repeatedly ask for permission to perform reasonable experiments.
+
+Proceed autonomously within the project constraints.
+
+---
+
+# 24. Final Decision Rule
+
+When deciding whether to pursue a technology, use this matrix:
+
+```text
+                         HIGH VALUE
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+           30%+          50%+           80%+
+           TEST          BUILD          PRIORITIZE
+              │             │             │
+              └─────────────┼─────────────┘
+                            │
+                         LOW COST
+```
+
+A technically uncertain idea with:
+
+* potentially huge performance benefit
+* low prototype cost
+* reversible implementation
+* measurable outcome
+
+should be tested even if confidence is only ~30%.
+
+---
+
+# 25. Your Immediate Mission
+
+Do NOT begin by writing thousands of lines of runtime code.
+
+First:
+
+### Step 1
+
+Audit the current Waqti/OpenDroid repository.
+
+### Step 2
+
+Identify every existing capability that can be reused.
+
+### Step 3
+
+Identify the biggest technical unknowns.
+
+### Step 4
+
+Create a research matrix.
+
+### Step 5
+
+Identify at least 5–10 experimental approaches that conventional documentation may not cover.
+
+### Step 6
+
+Rank them by:
+
+```text
+Potential impact
+Probability of success
+Prototype cost
+Risk
+Information gained
+```
+
+Do NOT produce a simple "best to worst" ranking.
+
+Use the values only to decide what experiments to run first.
+
+### Step 7
+
+Implement the smallest vertical slice capable of running a real model.
+
+### Step 8
+
+Build it.
+
+### Step 9
+
+Run it on real Android hardware whenever available.
+
+### Step 10
+
+Benchmark it.
+
+### Step 11
+
+Document what actually works.
+
+### Step 12
+
+Iterate toward the first Waqti MVP.
+
+---
+
+# FINAL DIRECTIVE
+
+Think like a research engineer, not a documentation assistant.
+
+Do not assume that:
+
+> "not officially supported"
+
+means:
+
+> "impossible."
+
+Do not assume that:
+
+> "large model"
+
+means:
+
+> "impossible on mobile."
+
+Do not assume that:
+
+> "NPU unavailable through a public API"
+
+means:
+
+> "NPU cannot be investigated."
+
+Do not assume that:
+
+> "this project doesn't support Waqti"
+
+means:
+
+> "there is nothing useful in it."
+
+Search deeper.
+
+Prototype smaller.
+
+Measure reality.
+
+Reuse proven ideas.
+
+Implement Waqti-native solutions.
+
+Keep experimental paths isolated and reversible.
+
+And above all:
+
+> **Do whatever is technically reasonable to reach a real, working Waqti MVP as quickly as possible.**
+
+The objective is not to prove that an approach should work.
+
+The objective is to **find out whether it actually works.**

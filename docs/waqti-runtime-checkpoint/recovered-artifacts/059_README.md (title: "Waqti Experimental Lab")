@@ -1,0 +1,34 @@
+# Waqti Experimental Lab
+
+This directory contains isolated, reversible, measurable experiments. No experiment is considered a runtime capability until it has a reproducible test and a recorded result.
+
+## Required experiment record
+
+Each experiment should record:
+
+- Hypothesis
+- Device/environment
+- Model and quantization
+- Expected result
+- Actual result
+- Logs and commands
+- Failure reason, if any
+- Estimated probability before running
+- Cost and risk
+- Decision: integrate, defer, or discard
+- Next experiment
+
+## MVP-first experiment order
+
+1. `inference/`: load one real GGUF, tokenize, run one verified forward pass, generate one token.
+2. `hardware/`: collect CPU/RAM/thermal/device profile on Redmi Turbo 4 Pro.
+3. `storage/`: measure mmap/sequential/random UFS reads and page-cache behavior.
+4. `gpu/`: benchmark a small FP16 GEMM against NEON/CPU.
+5. `npu/`: capability probe; no assumption of public QNN access.
+6. `memory/`: KV-cache and context-size limits.
+7. `agent/`: connect streaming local output to one safe file-read/edit/build loop.
+8. `moe/`: only after dense MVP works; test expert streaming separately.
+
+## Definition of MVP completion
+
+The first real Waqti MVP must load a real model, generate and stream output, execute one tool, read and modify a file, run a build/test command, observe an error, correct it, and complete a small coding task.

@@ -1,0 +1,371 @@
+Continue from the current verified checkpoint.
+
+Current proven state:
+
+* Real Qwen2.5-0.5B-Instruct Q4_K_M GGUF
+* Model SHA-256:
+  `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`
+* mmap-backed tensor access
+* Metadata-driven Qwen configuration
+* Real tokenizer
+* Real embedding lookup
+* Real RMSNorm
+* Q5_0/Q8_0/F32/F16 reference decoding
+* 6/6 CTest passing
+* ASan/UBSan passing
+* git diff --check passing
+* Embedding numerical comparison:
+  max abs diff = `4.22e-08`
+* RMSNorm numerical comparison:
+  max abs diff = `4.68e-07`
+
+The next objective is to prove the first real Qwen Transformer computations.
+
+# Phase 1 — Reference Matrix × Vector
+
+Implement a correctness-first matrix-vector operation over the existing mmap-backed tensor abstraction.
+
+Do NOT optimize.
+
+The operation must correctly handle the actual GGUF representation of:
+
+```text
+blk.0.attn_q.weight
+blk.0.attn_k.weight
+blk.0.attn_v.weight
+blk.0.attn_output.weight
+```
+
+and:
+
+```text
+blk.0.ffn_gate.weight
+blk.0.ffn_up.weight
+blk.0.ffn_down.weight
+```
+
+where required later.
+
+Initially focus only on Q/K/V.
+
+## Critical correctness checks
+
+Before accepting the implementation, explicitly verify:
+
+* tensor dimensions
+* GGUF dimension ordering
+* logical row/column interpretation
+* quantization block boundaries
+* Q5_0 high/low nibble interpretation
+* Q8_0 scale handling
+* input vector dimension
+* output vector dimension
+* whether the mathematical operation requires transpose
+* contiguous memory assumptions
+
+Do not assume conventional C++ matrix layout matches GGUF layout.
+
+Document the discovered convention.
+
+# Phase 2 — Q Projection
+
+Use the real normalized hidden state:
+
+```text
+embedding
+→ blk.0.attn_norm
+→ normalized_hidden
+```
+
+Then compute:
+
+```text
+Q = Wq × normalized_hidden
+```
+
+using the actual:
+
+```text
+blk.0.attn_q.weight
+```
+
+Expected logical shape:
+
+```text
+896 × 896
+```
+
+Compare the entire output vector against an independent trusted reference.
+
+Record:
+
+* tensor name
+* tensor type
+* input dimension
+* output dimension
+* max absolute difference
+* mean absolute difference
+* tolerance
+* pass/fail
+
+Do not proceed if the mismatch indicates a layout/dequantization problem.
+
+# Phase 3 — K Projection
+
+Compute:
+
+```text
+K = Wk × normalized_hidden
+```
+
+using:
+
+```text
+blk.0.attn_k.weight
+```
+
+Expected logical shape:
+
+```text
+896 × 128
+```
+
+Verify the actual metadata shape and explain the resulting projection dimension.
+
+Do not infer dimensions from assumptions.
+
+Compare against the independent reference.
+
+# Phase 4 — V Projection
+
+Compute:
+
+```text
+V = Wv × normalized_hidden
+```
+
+using the exact tensor discovered from GGUF.
+
+Again perform a full numerical comparison.
+
+At the end of this phase the following must be independently verified:
+
+```text
+normalized_hidden
+       │
+       ├── Wq → Q
+       ├── Wk → K
+       └── Wv → V
+```
+
+# Phase 5 — Attention Shape Preparation
+
+Only after Q/K/V are numerically correct, prepare the logical tensor shapes required by Qwen attention.
+
+From the verified metadata:
+
+```text
+attention heads = 14
+KV heads        = 2
+head dimension  = 64
+embedding       = 896
+```
+
+Verify the actual relationship between these values and the produced Q/K/V dimensions.
+
+Do NOT silently reshape incompatible dimensions.
+
+Explicitly document:
+
+* Q head layout
+* K head layout
+* V head layout
+* grouped-query attention relationship
+* head dimension
+* KV head repetition/broadcasting requirements
+
+# Phase 6 — RoPE
+
+Implement Qwen's actual RoPE convention only after Q/K/V are correct.
+
+Derive the required RoPE parameters from the model metadata.
+
+Verify:
+
+* rotary dimension
+* theta/frequency configuration
+* position index
+* even/odd pair convention
+* rotation sign
+* interleaved vs non-interleaved layout
+
+Test RoPE independently using deterministic vectors before integrating it into attention.
+
+Then compare the first-position Q/K RoPE output against a trusted reference.
+
+# Phase 7 — Causal Attention
+
+After RoPE is verified, implement the minimal single-token causal attention path.
+
+For the initial vertical slice, optimize for correctness rather than context throughput.
+
+Implement:
+
+```text
+Q
+↓
+Q/K head arrangement
+↓
+RoPE
+↓
+K/V cache for current position
+↓
+Q · Kᵀ
+↓
+scale
+↓
+causal constraint
+↓
+softmax
+↓
+weighted V
+```
+
+For the first token position, explicitly validate the causal behavior.
+
+Do not implement a sophisticated KV cache yet. A minimal correctness-first structure is sufficient.
+
+# Numerical Reference Harness
+
+Extend the existing reference comparison system.
+
+For the fixed prompt:
+
+```text
+Hello
+```
+
+and token ID:
+
+```text
+9707
+```
+
+record:
+
+```text
+model SHA
+prompt
+token IDs
+configuration
+tensor names
+tensor types
+input/output dimensions
+intermediate vectors
+max absolute error
+mean absolute error
+```
+
+Where practical compare:
+
+1. normalized hidden state
+2. Q
+3. K
+4. V
+5. RoPE(Q)
+6. RoPE(K)
+7. attention scores
+8. softmax
+9. attention output
+
+The first divergent operator must be identified.
+
+# Failure Protocol
+
+If numerical comparison fails:
+
+STOP.
+
+Do not continue to MLP or full layer.
+
+Investigate in this order:
+
+1. tensor dimensions
+2. GGUF dimension ordering
+3. quantization decoding
+4. scale interpretation
+5. input/output layout
+6. transpose
+7. head reshaping
+8. RoPE convention
+9. floating-point accumulation
+
+Fix the earliest divergence and rerun all affected tests.
+
+# Testing
+
+After each completed milestone:
+
+* CTest
+* ASan/UBSan
+* git diff --check
+
+All previous tests must remain green.
+
+Update:
+
+`WAQTI_RUNTIME_PROGRESS_HANDOFF.md`
+
+with:
+
+```text
+STEP X/Y
+Status: COMPLETE
+
+Implemented:
+Evidence:
+Tests:
+Numerical comparison:
+Known limitation:
+Next:
+```
+
+If blocked:
+
+```text
+Status: BLOCKED
+Failure:
+Evidence:
+Root cause/hypothesis:
+Attempted fixes:
+Next experiment:
+```
+
+# Strict Scope
+
+Do NOT implement yet:
+
+* NEON optimization
+* Vulkan inference
+* QNN/NPU
+* MoE
+* expert streaming
+* large models
+* model routing
+* speculative decoding
+* production Android generation
+
+The goal of this slice is purely:
+
+```text
+Real Qwen
+→ normalized hidden state
+→ Q/K/V
+→ RoPE
+→ minimal causal attention
+→ numerically verified attention output
+```
+
+Only after this is correct should the project proceed to the Qwen MLP and complete Layer 0.
+
+Implement the actual repository changes now. Build, test, compare against an independent reference, fix any mismatch, and update the handoff with reproducible evidence.

@@ -1,0 +1,358 @@
+# Waqti — Continue From Checkpoint 90: Attention Output Projection + Residual
+
+أنت تكمل من **Checkpoint 90%** في Waqti native Qwen inference vertical slice.
+
+## الحالة الحالية
+
+تم بنجاح تنفيذ والتحقق من:
+
+* Real Qwen GGUF loading
+* mmap TensorView
+* tokenizer
+* embedding
+* RMSNorm
+* Q/K/V projections
+* RoPE
+* GQA preparation
+* single-token causal attention
+
+الحالة الحالية:
+
+```text
+Embedding
+  ↓
+RMSNorm
+  ↓
+Q/K/V projection
+  ↓
+RoPE
+  ↓
+GQA
+  ↓
+Causal attention
+  ↓
+NEXT: attention output projection + residual
+```
+
+الاختبارات الحالية:
+
+```text
+7/7 CTest passed
+Attention reference ASan/UBSan: PASS
+git diff --check: PASS
+```
+
+Model:
+
+```text
+Qwen2.5-0.5B-Instruct
+Qwen GGUF Q4_K_M
+```
+
+لا تعيد تنفيذ أي جزء ناجح إلا إذا ظهر regression.
+
+---
+
+# المرحلة المطلوبة الآن
+
+## 1. Preserve the attention output
+
+استخدم ناتج الـsingle-token attention الحقيقي من المرحلة السابقة.
+
+لدينا لكل 14 query heads:
+
+```text
+[14, 64]
+```
+
+ويجب دمجهم إلى:
+
+```text
+[896]
+```
+
+قبل تطبيق attention output projection.
+
+### مهم
+
+تحقق صراحة من layout:
+
+```text
+heads × head_dim
+14 × 64 = 896
+```
+
+ولا تفترض ترتيب الذاكرة بدون إثبات.
+
+اكتب helper واضحًا لعملية:
+
+```text
+attention_heads → concatenated_attention_output
+```
+
+وقارن الناتج مع Python reference مستقل.
+
+---
+
+# 2. Attention output projection
+
+ابحث عن tensor الحقيقي:
+
+```text
+blk.0.attn_output.weight
+```
+
+واستخدم الـtensor decoder الموجود بالفعل.
+
+لا تضف quantization implementation جديدة إذا كان decoder الحالي يدعم نوع tensor هذا.
+
+الـmetadata المعروف:
+
+```text
+embedding = 896
+```
+
+والـattention output projection يجب أن ينتج:
+
+```text
+896 → 896
+```
+
+نفذ:
+
+```text
+attention_concat
+        ↓
+W_o × attention_concat
+        ↓
+attention_projected
+```
+
+استخدم reference F32 accumulation.
+
+لا تستخدم NEON/Vulkan/QNN أو أي optimization.
+
+---
+
+# 3. Independent numerical verification
+
+أنشئ/وسع intermediate harness بحيث يسجل:
+
+```text
+model SHA-256
+prompt
+token IDs
+position
+tensor name
+tensor dimensions
+tensor type
+input vector length
+output vector length
+```
+
+ثم قارن:
+
+```text
+attention_concat
+attention_projected
+```
+
+مع Python reference مستقل.
+
+لكل واحد سجل:
+
+```text
+max_abs_diff
+mean_abs_diff
+RMS_error
+```
+
+إذا ظهر mismatch:
+
+**توقف فورًا.**
+
+لا تكمل إلى residual أو MLP قبل تحديد السبب.
+
+افحص بالترتيب:
+
+1. head ordering
+2. head concatenation
+3. tensor orientation
+4. quantized weight decoding
+5. matrix/vector dimensions
+6. accumulation precision
+
+---
+
+# 4. Residual path
+
+بعد نجاح output projection فقط، نفذ residual الخاص بالـattention.
+
+Qwen Layer 0 يجب أن يتبع الـactual architecture/config الموجود في GGUF.
+
+لا تفترض ترتيب residual من الذاكرة.
+
+تحقق من implementation/config/model metadata أولًا.
+
+إذا كان المسار:
+
+```text
+attention_output
+        +
+residual_input
+        ↓
+post-attention hidden state
+```
+
+نفذه كـF32 reference.
+
+ثم قارن:
+
+```text
+residual_input
+attention_projected
+residual_output
+```
+
+مع Python reference.
+
+---
+
+# 5. Important: architecture verification
+
+قبل كتابة residual code، تحقق من ترتيب Qwen الحقيقي في النموذج.
+
+يجب توثيق:
+
+```text
+pre-attention norm
+→ attention
+→ output projection
+→ residual
+→ post-attention norm
+→ MLP
+→ residual
+```
+
+أو أي ترتيب آخر يثبته model metadata/reference implementation.
+
+**لا تعتمد على الذاكرة أو التخمين.**
+
+إذا كان Qwen2.5 architecture يحتوي على RMSNorm إضافية بين attention وMLP، فهذه ستكون الخطوة التالية بعد residual وقبل MLP.
+
+---
+
+# 6. Testing
+
+بعد كل milestone:
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+ثم:
+
+```text
+ASan/UBSan
+git diff --check
+```
+
+ويجب ألا يكون هناك undefined behavior.
+
+---
+
+# 7. Update handoff
+
+حدّث:
+
+```text
+WAQTI_RUNTIME_PROGRESS_HANDOFF.md
+```
+
+وسجل:
+
+```text
+Checkpoint 90 → attention output projection/residual
+```
+
+مع:
+
+* implementation
+* exact tensor names
+* dimensions
+* tensor types
+* model SHA
+* numerical comparison
+* max_abs_diff
+* mean_abs_diff
+* RMS error
+* tests
+* any failure and diagnosis
+* next task
+
+---
+
+# Strict boundaries
+
+في هذه المرحلة **ممنوع**:
+
+* NEON
+* Vulkan
+* QNN
+* Hexagon
+* GPU/NPU optimization
+* MoE
+* expert streaming
+* large models
+* KV cache optimization
+* speculative decoding
+* production Android inference
+* LM head
+* generation
+
+Correctness first.
+
+---
+
+# Definition of Done
+
+توقف فقط بعد أن يصبح لدينا:
+
+```text
+Real Qwen
+  ↓
+Embedding
+  ↓
+RMSNorm
+  ↓
+Q/K/V
+  ↓
+RoPE
+  ↓
+GQA
+  ↓
+Causal Attention
+  ↓
+Head Concatenation
+  ↓
+Attention Output Projection
+  ↓
+Attention Residual
+```
+
+وكل مرحلة لها numerical evidence مستقل.
+
+**لا تبدأ MLP في هذه المهمة.**
+
+عند الانتهاء، أعطني:
+
+1. files changed
+2. exact tensor names/types/dimensions
+3. numerical comparison results
+4. tests
+5. ASan/UBSan result
+6. git diff --check
+7. updated checkpoint
+8. exact next recommended task
+
+ولا تكتفِ بوصف نظري؛ المطلوب implementation فعلي داخل repository.

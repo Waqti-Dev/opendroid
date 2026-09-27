@@ -1,0 +1,26 @@
+# Waqti Runtime — 80% Checkpoint
+
+## STEP 1-5/7
+
+**Status: COMPLETE**
+
+The real Qwen2.5-0.5B-Instruct Q4_K_M file now drives the first reference operations. The prompt `Hello` tokenizes to token ID `9707`. Waqti maps `token_embd.weight`, decodes the correct Q5_0 row with dimension 896, and applies the real `blk.0.attn_norm.weight` with metadata epsilon `1e-6`.
+
+The independent Python scalar decoder agrees with the C++ embedding output within a maximum absolute difference of `4.22e-08` for the first eight reported values. The independent Python RMSNorm calculation agrees within `4.68e-07` for the first eight reported values. Differences are from printed decimal precision, not a known algorithmic mismatch.
+
+## Verification
+
+```text
+Model SHA-256: 74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db
+Prompt: Hello
+Token IDs: 9707
+Embedding dimension: 896
+Embedding: max abs diff 4.22e-08 vs independent scalar Python decode
+RMSNorm: max abs diff 4.68e-07 vs independent Python calculation
+CTest: 6/6 passed
+Qwen reference ASan/UBSan: PASS
+```
+
+## Remaining for the vertical slice
+
+The first Transformer layer is not complete. Remaining work is real Q5_0/Q8_0 matrix-vector products, Q/K/V projections, RoPE, causal attention, attention output projection, Qwen MLP, residuals, and a numerical layer-0 harness. No optimization or Android JNI generation should begin before those reference operations are correct.

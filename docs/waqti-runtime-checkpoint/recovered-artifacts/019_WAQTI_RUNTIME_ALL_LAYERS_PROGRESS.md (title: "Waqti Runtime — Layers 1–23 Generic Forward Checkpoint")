@@ -1,0 +1,84 @@
+# Waqti Runtime — Layers 1–23 Generic Forward Checkpoint
+
+## Implementation
+
+Added one reusable `forward_layer(layer_index, hidden_state, position)` implementation in `transformer_layer.{h,cpp}`. Tensor names are resolved dynamically as `blk.<N>.*`; no layer-specific forward functions were created. The implementation reuses the verified mmap TensorView, RMSNorm, Q5_0/Q6_K/Q8_0 decoders, matvec, RoPE, GQA, single-token attention, concatenation, residual, SiLU, and SwiGLU operators.
+
+The GGUF metadata scan found all required tensor families complete for Layers 0 through 23. Layer 0 was run through the generic path before executing the remaining layers and matched the saved Layer-0 second-residual checkpoint:
+
+```text
+layer0 first4 = -0.0849903, -0.3422503, 0.233653, -0.142844
+layer0 output RMS = 0.340542
+finite = true
+```
+
+## First divergence and repair
+
+The first full run stopped at Layer 2 with:
+
+```text
+tensor type is not implemented by reference decoder
+```
+
+Metadata identified `blk.2.ffn_down.weight` as GGML type 12 (`Q4_K`). The existing Q4_K reference decoder was integrated into the common `tensor_decode` path. A direct type-12 decoder fixture was added and all tests passed before rerunning.
+
+## All-layer diagnostics
+
+Prompt/token: `Hello` / `9707`. Position: `0`. Model SHA-256: `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`.
+
+```text
+layer  input_rms  output_rms  min       max      finite
+0      0.0201862  0.340542    -1.2287   3.43567  true
+1      0.340542   0.577444    -2.15692  3.85016  true
+2      0.577444   1.11827     -16.9683  7.57172  true
+3      1.11827    8.29786     -31.2365 35.7514  true
+4      8.29786    8.51017     -30.0868 37.7277  true
+5      8.51017    8.72192     -30.7993 36.2922  true
+6      8.72192    9.04252     -27.0708 38.4598  true
+7      9.04252    9.33002     -26.7428 39.9285  true
+8      9.33002    9.83124     -28.8182 41.4894  true
+9      9.83124    10.3879     -28.6493 45.8754  true
+10     10.3879    10.7906     -30.5687 52.8182  true
+11     10.7906    11.0507     -31.3383 56.1472  true
+12     11.0507    11.2441     -32.2367 55.0807  true
+13     11.2441    11.5515     -34.1164 51.638   true
+14     11.5515    11.6726     -34.6325 48.2382  true
+15     11.6726    11.6792     -36.8948 42.9313  true
+16     11.6792    11.7112     -36.4201 43.7654  true
+17     11.7112    12.1219     -34.7749 47.4458  true
+18     12.1219    12.4355     -38.1961 47.791   true
+19     12.4355    12.7825     -39.1883 47.9637  true
+20     12.7825    13.7826     -43.7389 48.2414  true
+21     13.7826    14.1200     -47.2174 45.6526  true
+22     14.1200    14.7977     -49.5818 51.3371  true
+23     14.7977    15.5873     -87.7401 58.1937  true
+```
+
+## Full-model diagnostic
+
+After Layer 23, final RMSNorm and the existing mmap LM head produced 151936 logits:
+
+```text
+final hidden RMS = 7.17446
+argmax = 102610
+argmax logit = 12.9598
+logits min = -12.7059
+logits max = 12.9598
+```
+
+Top 10:
+
+```text
+102610:12.9598
+101601:12.9379
+13803:12.8055
+13072:12.7319
+120000:12.6626
+23063:12.6026
+27090:12.5498
+3588:12.1958
+123887:12.0985
+39426:12.0547
+```
+
+This is the first full 24-layer reference diagnostic. It is still a single-token, position-0 reference execution; generation, KV cache, multi-token support, and optimization backends remain out of scope.

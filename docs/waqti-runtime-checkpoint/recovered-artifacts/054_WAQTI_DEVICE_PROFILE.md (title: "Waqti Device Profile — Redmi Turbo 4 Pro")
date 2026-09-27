@@ -1,0 +1,44 @@
+# Waqti Device Profile — Redmi Turbo 4 Pro
+
+## Evidence-backed hardware baseline
+
+The official Xiaomi product page identifies the Redmi Turbo 4 Pro as using the Snapdragon 8s Gen 4 on TSMC 4 nm, an all-big-core design with 1× Cortex-X4 and 7× Cortex-A720, a 6000 mm² dual-loop 3D cooling design, and a 7550 mAh battery with 90 W wired charging. Xiaomi's claims are laboratory claims and are not used as runtime benchmarks. [1]
+
+Qualcomm's official Snapdragon 8s Gen 4 page lists a 64-bit Kryo CPU up to 3.2 GHz, Adreno GPU with Vulkan 1.3 and OpenCL 2.0 FP, Hexagon features including HVX and tensor acceleration, INT4/INT8 support, and a claimed AI performance improvement. These capabilities identify experiments to run; they do not prove that a third-party Android application can access every accelerator path. [2]
+
+For the user's known configuration, Waqti should treat the device as **12 GB RAM / 256 GB storage until the on-device probe reports otherwise**. The model/storage variant must be collected at runtime rather than inferred from the product family.
+
+## Runtime decisions
+
+1. **CPU/ARM64/NEON is the baseline.** Android NDK documents that ARMv8 Android devices support NEON and that the NDK enables it by default. [3]
+2. **Vulkan is an experimental backend.** Probe instance creation and FP16 compute before routing any tensor there. Qualcomm lists Vulkan 1.3, but driver behavior and usable compute features remain device/runtime facts.
+3. **NPU/QNN is a probe, not a dependency.** Qualcomm advertises Hexagon capabilities, but Waqti will not require privileged or undocumented APIs. A failed probe must fall back to CPU.
+4. **Thermal status controls policy.** Android exposes thermal status levels and callbacks. Waqti will reduce threads/context or pause generation at higher levels instead of fighting system thermal mitigation. [4]
+5. **Storage is UFS-backed, but weight streaming must be measured.** Use mmap/sequential/random-read experiments on the actual device; do not assume advertised storage behavior is the same as sustained random tensor access.
+
+## Initial tuning policy
+
+- ARM64: enable CPU_NEON path.
+- Start with 2–6 worker threads, then choose the best sustainable result from an on-device benchmark.
+- Start context at 4096 tokens; raise to 8192 only when available RAM and thermal measurements permit.
+- Prefer Q4_K_M for the first useful local model; compare Q5_K_M only after correctness.
+- Keep only one large model resident; unload before switching model families.
+- Record TTFT, decode tokens/s, peak/average RAM, thermal status, and 5-minute sustained behavior.
+
+## Required real-device experiments
+
+| Experiment | Question | Acceptance evidence |
+|---|---|---|
+| CPU thread sweep | Which thread count is fastest sustainably? | 1/2/4/6 thread results after 5 minutes |
+| NEON MatMul | Does the ARM kernel beat the scalar reference? | same-shape correctness plus throughput |
+| Vulkan probe | Can this device create a usable FP16 compute path? | successful instance/device/kernel test |
+| NPU probe | Is a permitted public path usable for one operator? | operator result compared with CPU |
+| UFS access | Is mmap/random access viable for tensor blocks? | bandwidth, latency, page-fault and thermal log |
+| Thermal policy | When should Waqti reduce or pause? | status callback plus generation behavior |
+
+## References
+
+[1]: https://www.mi.com/prod/redmi-turbo-4-pro "REDMI Turbo 4 Pro official Xiaomi product page"
+[2]: https://www.qualcomm.com/smartphones/products/8-series/snapdragon-8s-gen-4-mobile-platform "Snapdragon 8s Gen 4 official Qualcomm product page"
+[3]: https://developer.android.com/ndk/guides/cpu-arm-neon "Android NDK Neon support"
+[4]: https://source.android.com/docs/core/power/thermal-mitigation "AOSP thermal mitigation"

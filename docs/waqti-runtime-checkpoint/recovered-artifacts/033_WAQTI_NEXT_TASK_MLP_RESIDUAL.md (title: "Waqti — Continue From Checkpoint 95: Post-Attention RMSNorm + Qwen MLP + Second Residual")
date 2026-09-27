@@ -1,0 +1,615 @@
+# Waqti — Continue From Checkpoint 95: Post-Attention RMSNorm + Qwen MLP + Second Residual
+
+أنت تكمل من **Checkpoint 95%** في Waqti native Qwen inference vertical slice.
+
+## Current verified path
+
+لدينا الآن مسار حقيقي يعمل على Qwen2.5-0.5B-Instruct GGUF:
+
+```text
+Embedding
+  ↓
+Pre-attention RMSNorm
+  ↓
+Q/K/V projections
+  ↓
+RoPE
+  ↓
+GQA
+  ↓
+Single-token causal attention
+  ↓
+Head concatenation
+  ↓
+Attention output projection
+  ↓
+Attention residual
+```
+
+آخر مرحلة تم التحقق منها عدديًا:
+
+```text
+attention_concat:
+max_abs_diff = 6.0111e-08
+mean_abs_diff = 1.0204e-08
+RMS = 1.4780e-08
+
+attention_projected:
+max_abs_diff = 5.6541e-08
+mean_abs_diff = 7.6497e-09
+RMS = 1.0230e-08
+
+attention_residual:
+max_abs_diff = 5.6541e-08
+mean_abs_diff = 7.6853e-09
+RMS = 1.0292e-08
+```
+
+Tests:
+
+```text
+7/7 CTest passed
+ASan/UBSan PASS
+git diff --check PASS
+```
+
+Model SHA must continue to be recorded exactly as already documented in the handoff.
+
+Do not redo successful stages unless regression appears.
+
+---
+
+# Objective
+
+Implement and independently verify:
+
+```text
+Attention residual
+      ↓
+Post-attention RMSNorm
+      ↓
+Qwen MLP
+ ├── gate projection
+ ├── up projection
+ ├── SiLU
+ ├── element-wise multiply
+ └── down projection
+      ↓
+Second residual
+```
+
+Then stop.
+
+Do **NOT** implement final norm, LM head, or generation in this task.
+
+---
+
+# 1. Verify the exact Qwen architecture first
+
+Before implementing anything, inspect the actual GGUF metadata and tensor names.
+
+Do not assume tensor names or dimensions from memory.
+
+Identify the exact Layer 0 tensors for:
+
+```text
+post-attention RMSNorm
+MLP gate projection
+MLP up projection
+MLP down projection
+```
+
+For the known Qwen2.5-0.5B architecture, the hidden size is:
+
+```text
+896
+```
+
+and FFN size is:
+
+```text
+4864
+```
+
+But verify both against the actual model metadata.
+
+Document:
+
+```text
+tensor name
+tensor type
+shape
+input dimension
+output dimension
+```
+
+for every tensor used.
+
+---
+
+# 2. Post-attention RMSNorm
+
+Input:
+
+```text
+attention_residual
+```
+
+Apply the actual Layer 0 post-attention RMSNorm using:
+
+```text
+epsilon = actual GGUF/model configuration value
+```
+
+Do not hard-code epsilon if it can be read from model metadata.
+
+The operation is conceptually:
+
+```text
+mean_square = sum(x_i²) / hidden_size
+
+inv_rms = 1 / sqrt(mean_square + epsilon)
+
+normalized_i = x_i * inv_rms
+
+output_i = normalized_i * weight_i
+```
+
+Use the existing verified RMSNorm implementation if applicable.
+
+Do not create a second subtly different implementation without reason.
+
+---
+
+# 3. Independent verification of post-attention RMSNorm
+
+Create a full 896-element trace.
+
+Compare C++ against an independent scalar Python reference.
+
+Record:
+
+```text
+max_abs_diff
+mean_abs_diff
+RMS_error
+```
+
+Also record:
+
+```text
+epsilon
+input length
+weight tensor name
+weight tensor type
+```
+
+If mismatch occurs:
+
+STOP.
+
+Debug in this order:
+
+1. residual input
+2. RMS epsilon
+3. RMS reduction precision
+4. weight decoding
+5. vector length
+6. multiplication order
+
+Do not proceed to MLP until this stage matches.
+
+---
+
+# 4. Gate projection
+
+Locate the actual Layer 0 gate projection tensor.
+
+Determine whether the model exposes separate:
+
+```text
+gate_proj
+up_proj
+down_proj
+```
+
+or equivalent tensor names.
+
+Do not infer the tensor naming convention.
+
+The gate projection should transform:
+
+```text
+896 → 4864
+```
+
+if confirmed by metadata.
+
+Use the existing reference matrix-vector implementation and tensor decoder.
+
+Use F32 accumulation.
+
+No optimization.
+
+Generate a full 4864-element trace.
+
+Compare independently against Python.
+
+Record:
+
+```text
+max_abs_diff
+mean_abs_diff
+RMS_error
+```
+
+---
+
+# 5. Up projection
+
+Implement the corresponding up projection:
+
+```text
+896 → 4864
+```
+
+Again:
+
+* real GGUF tensor
+* real quantized decoding
+* mmap
+* F32 accumulation
+* no full model copy
+
+Generate full output trace.
+
+Compare independently with Python.
+
+Do not continue if mismatch appears.
+
+---
+
+# 6. SiLU / SwiGLU verification
+
+Determine the exact activation from model metadata/reference architecture.
+
+If the architecture is SwiGLU-style:
+
+```text
+gate = gate_proj(x)
+up   = up_proj(x)
+
+activated_gate = SiLU(gate)
+
+hidden_i = activated_gate_i * up_i
+```
+
+where:
+
+```text
+SiLU(x) = x / (1 + exp(-x))
+```
+
+Use a numerically stable scalar/reference implementation.
+
+Important:
+
+Do not silently swap:
+
+```text
+SiLU(gate) * up
+```
+
+with:
+
+```text
+SiLU(up) * gate
+```
+
+Verify which projection is the gate from the actual model architecture/tensor naming.
+
+Generate full 4864-element trace for:
+
+```text
+gate
+up
+SiLU(gate)
+MLP intermediate
+```
+
+Compare each stage independently where practical.
+
+---
+
+# 7. Down projection
+
+Use the actual Layer 0 down projection:
+
+```text
+4864 → 896
+```
+
+with the existing reference matrix-vector implementation.
+
+Use F32 accumulation.
+
+Generate full 896-element trace:
+
+```text
+mlp_down
+```
+
+Compare independently with Python.
+
+Record:
+
+```text
+max_abs_diff
+mean_abs_diff
+RMS_error
+```
+
+---
+
+# 8. Second residual
+
+Compute:
+
+```text
+second_residual =
+attention_residual + mlp_down
+```
+
+Use the exact residual ordering established from the actual architecture.
+
+Do not accidentally add the MLP output to the pre-attention embedding or to the post-attention normalized vector.
+
+The intended conceptual flow is:
+
+```text
+x0 = embedding
+
+attention = Attention(RMSNorm(x0))
+
+x1 = x0 + attention_output
+
+mlp_input = PostAttentionRMSNorm(x1)
+
+mlp_output = MLP(mlp_input)
+
+x2 = x1 + mlp_output
+```
+
+Verify this against the actual Qwen architecture before accepting it.
+
+Generate the complete 896-element `second_residual` trace.
+
+Compare with Python.
+
+---
+
+# 9. Full Layer 0 numerical trace
+
+Once all individual stages pass, create one end-to-end trace containing:
+
+```text
+embedding
+pre_attention_norm
+Q
+K
+V
+RoPE(Q)
+RoPE(K)
+attention scores
+attention probabilities
+attention per-head output
+attention_concat
+attention_projected
+attention_residual
+post_attention_norm
+gate
+up
+SiLU(gate)
+MLP intermediate
+mlp_down
+second_residual
+```
+
+For each vector/tensor, record appropriate:
+
+```text
+shape
+dtype
+tensor source
+max_abs_diff
+mean_abs_diff
+RMS_error
+```
+
+This becomes the definitive Layer 0 correctness artifact.
+
+---
+
+# 10. First divergence rule
+
+This is critical.
+
+If any numerical comparison fails:
+
+**STOP at the first divergent operator.**
+
+Do not continue and produce a large collection of downstream mismatches.
+
+Debug order:
+
+```text
+post-attention RMSNorm
+        ↓
+gate projection
+        ↓
+up projection
+        ↓
+SiLU
+        ↓
+element-wise multiply
+        ↓
+down projection
+        ↓
+second residual
+```
+
+The first mismatch is the useful one.
+
+---
+
+# 11. Tests
+
+After implementation:
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+Run:
+
+```text
+ASan
+UBSan
+```
+
+Run:
+
+```bash
+git diff --check
+```
+
+No undefined behavior.
+
+No out-of-bounds reads.
+
+No tensor payload overrun.
+
+No accidental full-model copy.
+
+---
+
+# 12. Update handoff
+
+Update:
+
+```text
+WAQTI_RUNTIME_PROGRESS_HANDOFF.md
+```
+
+and create:
+
+```text
+WAQTI_RUNTIME_100_PROGRESS.md
+```
+
+if appropriate.
+
+Record:
+
+* exact model SHA
+* model filename
+* architecture/config
+* all Layer 0 tensor names
+* tensor types
+* tensor shapes
+* numerical comparisons
+* first divergence if any
+* tests
+* ASan/UBSan
+* git diff --check
+* known limitations
+
+If every stage passes, explicitly mark:
+
+```text
+Layer 0 reference correctness: VERIFIED
+```
+
+---
+
+# Strict boundaries
+
+Do NOT implement yet:
+
+* final RMSNorm
+* LM head
+* logits
+* sampling
+* generation loop
+* KV cache optimization
+* multi-token optimization
+* NEON
+* Vulkan
+* QNN
+* Hexagon
+* GPU/NPU
+* MoE
+* expert streaming
+* speculative decoding
+* Android production inference
+* performance optimization
+
+This task is still **correctness-only**.
+
+---
+
+# Definition of Done
+
+The task is complete only when:
+
+```text
+Embedding
+  ↓
+Pre-attention RMSNorm
+  ↓
+Q/K/V
+  ↓
+RoPE
+  ↓
+GQA
+  ↓
+Causal attention
+  ↓
+Attention output projection
+  ↓
+Attention residual
+  ↓
+Post-attention RMSNorm
+  ↓
+Gate projection
+  ↓
+Up projection
+  ↓
+SiLU
+  ↓
+Element-wise multiply
+  ↓
+Down projection
+  ↓
+Second residual
+```
+
+has independent numerical evidence and all tests pass.
+
+Then STOP.
+
+Do not proceed to final norm or LM head.
+
+At completion, report:
+
+1. files changed
+2. exact Layer 0 tensor names
+3. tensor types
+4. tensor dimensions
+5. numerical errors for every major stage
+6. full Layer 0 trace result
+7. CTest result
+8. ASan/UBSan result
+9. git diff --check result
+10. updated handoff/checkpoint
+11. exact next task
