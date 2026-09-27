@@ -2,8 +2,8 @@
 
 - Last Updated (UTC): 2026-09-27T12:59:59Z
 - Branch: `waqti-qwen-reference-runtime`
-- Current commit: pending first checkpoint commit
-- Remote commit: not pushed yet
+- Current commit: `91d6a20` (checkpoint commit)
+- Remote commit: pending push verification
 - Previous known-good base: `b89a255b37be33096a1ba67a3cff40efcd919b82` (`main`)
 
 ## Current Phase
