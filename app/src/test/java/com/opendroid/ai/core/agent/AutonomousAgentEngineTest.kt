@@ -31,7 +31,7 @@ class AutonomousAgentEngineTest {
     @Test
     fun deniedCommand_isRecordedAsFailure() = runBlocking {
         val manager = ProviderManager().apply {
-            register(FakeProvider("""{"toolCall":{"name":"RunCommand","arguments":{"command":"./gradlew test"}}}"""))
+            register(FakeProvider("""{"toolCall":{"name":"RunCommand","arguments":{"command":"rm -rf ."}}}"""))
         }
         val engine = AutonomousAgentEngine(manager, RecordingExecutor(), ToolPermissionManager())
 
@@ -39,6 +39,23 @@ class AutonomousAgentEngineTest {
 
         assertEquals(AgentCheckpoint.Status.FAILED, result.checkpoint.status)
         assertTrue(result.checkpoint.lastError!!.contains("Permission denied"))
+    }
+
+    @Test
+    fun toolObservations_areFedBack_untilFinalResponse() = runBlocking {
+        val provider = SequencedProvider(
+            """{"toolCall":{"name":"ReadFile","arguments":{"path":"README.md"}}}""",
+            "Final answer after observation"
+        )
+        val manager = ProviderManager().apply { register(provider) }
+        val engine = AutonomousAgentEngine(manager, RecordingExecutor(), ToolPermissionManager(), maxSteps = 3)
+
+        val result = engine.execute("Inspect README")
+
+        assertEquals(AgentCheckpoint.Status.COMPLETED, result.checkpoint.status)
+        assertEquals("Final answer after observation", result.output)
+        assertEquals(2, provider.prompts.size)
+        assertTrue(provider.prompts[1].contains("ReadFile succeeded"))
     }
 
     @Test
@@ -67,6 +84,18 @@ class AutonomousAgentEngineTest {
         override suspend fun generate(prompt: String): String {
             if (throwOnGenerate) throw IllegalStateException("primary failed")
             return response
+        }
+    }
+
+    private class SequencedProvider(private vararg val responses: String) : Provider {
+        override val id: String = "sequenced"
+        override val displayName: String = id
+        val prompts = mutableListOf<String>()
+        private var index = 0
+        override suspend fun isAvailable(): Boolean = true
+        override suspend fun generate(prompt: String): String {
+            prompts += prompt
+            return responses.getOrElse(index++) { responses.last() }
         }
     }
 

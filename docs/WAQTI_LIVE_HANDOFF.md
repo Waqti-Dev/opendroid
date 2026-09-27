@@ -1,78 +1,61 @@
 # WAQTI LIVE HANDOFF
 
-- Last Updated (UTC): 2026-09-27T15:07:40Z
-- Branch: `waqti-qwen-reference-runtime`
-- Golden correction commit: `e908749` (`fix: correct independent qwen swiglu golden`)
-- Remote commit: `b86b7190c1eb3e4500ad9b183cadc0d0316330e8` (verified on `origin/waqti-qwen-reference-runtime`)
+- Last Updated (UTC): 2026-09-27T15:16:10Z
+- Branch: `waqti-mvp-sprint`
+- MVP starting checkpoint: `0ca348d61cf585eeb85219a38d58ab27a089b515`
+- Previous Qwen branch: `waqti-qwen-reference-runtime`
+- Previous Qwen documentation commit: `0ca348d61cf585eeb85219a38d58ab27a089b515`
 - Previous known-good base: `b89a255b37be33096a1ba67a3cff40efcd919b82` (`main`)
 
 ## Current Phase
 
-Exact GGUF verification; model-level numerical verification remains blocked.
+Waqti MVP implementation milestone: bounded coding-agent loop and workspace-safe tools implemented; Android build verification blocked by missing SDK.
 
-## Current Checkpoint
+## Preserved Checkpoint
 
 - Local preservation snapshot: `/home/ubuntu/WAQTI_CHECKPOINT_SNAPSHOT_20260927_1454/`
 - Source manifest entries: 79
 - Copied artifacts: 79
 - Snapshot manifest SHA-256: `adac3a218eb15ec0ff96bffaf355a25c28f35c9f24f302bf1ec293e4788cfe05`
-- This branch contains native C++ files under `app/src/main/cpp/` and an exact artifact archive under `docs/waqti-runtime-checkpoint/recovered-artifacts/`.
+- The Qwen branch contains native C++ files under `app/src/main/cpp/` and the exact recovered artifact archive under `docs/waqti-runtime-checkpoint/recovered-artifacts/`.
 
-## Verified in Current Recovery Environment
+## Qwen Correctness Track
 
-- Source manifest resolves to 79/79 present files.
-- Copied artifacts match their source SHA-256 and size.
-- Direct `g++` manual tests passed for the recovered native test executables.
-- C++ source syntax checks passed with `-Wall -Wextra -Wpedantic`.
-- Original recovered directories remained unchanged during snapshot verification.
-- Golden Python AST syntax check: PASS.
-- Model-independent SwiGLU expression unit check: PASS.
-- `git diff --check`: PASS.
+- Exact GGUF: `qwen2.5-0.5b-instruct-q4_k_m.gguf` — UNAVAILABLE.
+- Required SHA-256: `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`.
+- Golden file: `docs/waqti-runtime-checkpoint/recovered-artifacts/010_waqti_multitoken_golden.py`.
+- Golden: CORRECTED / UNVERIFIED (`gate * sigmoid(gate) * up`).
+- Python↔C++ numerical parity: BLOCKED.
+- No golden, transformer, KV cache, JNI, or Android native runtime changes were made in this MVP branch.
 
-## Golden Correction
+## MVP Milestone
 
-- File: `docs/waqti-runtime-checkpoint/recovered-artifacts/010_waqti_multitoken_golden.py`
-- Old: `sigmoid(gate) * up`
-- New: `gate * sigmoid(gate) * up` (`SiLU(gate) * up`)
-- Golden status: CORRECTED / UNVERIFIED.
+- Architecture map: PRESENT — `docs/WAQTI_MVP_ARCHITECTURE.md`.
+- Status report: PRESENT — `docs/WAQTI_MVP_STATUS.md`.
+- Bounded `AutonomousAgentEngine`: PRESENT; multi-step observations, max step limit, checkpoint updates, and cooperative cancellation are implemented.
+- Workspace tools: PRESENT; read, write, create, patch, list, and search are canonical-root constrained.
+- Terminal tool: PRESENT / SAFETY-BOUNDED; allowlisted development commands, timeout, bounded output, and destructive-fragment rejection.
+- Permission policy: PRESENT; destructive deletion and unsafe commands are denied by default.
+- Tests: ADDED / NOT EXECUTED.
 
-## Exact GGUF Verification
+## Verification
 
-- Filename: `qwen2.5-0.5b-instruct-q4_k_m.gguf`
-- Required SHA-256: `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`
-- Search result: `EXACT GGUF UNAVAILABLE`.
-- Search scope: `/home/ubuntu`, `/tmp`, `/mnt`, `/workspace`, `/workspaces`, `/opt`, `/srv`, Downloads, uploads, recovered task, recovered project, and preservation snapshot.
-- Numerical parity: BLOCKED until the exact file is found and its SHA-256 matches.
+- Existing recovered source manifest: 79/79 files resolved and preserved.
+- Preservation copies matched source SHA-256 and size.
+- Previous direct `g++` manual tests passed for recovered native test executables.
+- Previous C++ source syntax checks passed with `-Wall -Wextra -Wpedantic`.
+- `git diff --check`: PASS for this milestone.
+- Gradle targeted test attempt 1: BLOCKED because JDK 21 compiler was missing; JDK 21 was then installed.
+- Gradle targeted test attempt 2: BLOCKED — Android SDK is not installed; `ANDROID_HOME` and `sdk.dir` are unset.
+- Kotlin standalone compiler: unavailable (`kotlinc` not installed).
+- Android APK: NOT BUILT.
+- Device/emulator smoke test: NOT RUN.
+- Live provider calls: NOT RUN; no credentials committed.
 
-## Unverified / Not Claimed
+## Security / Non-goals
 
-- The corrected golden has not been executed against the exact model.
-- CTest 8/8 has not been rerun in this environment.
-- Generation source is present but not integrated/tested in CMake.
-- Full recomputation versus cached incremental equivalence is unverified.
-- JNI, Android inference, device validation, and performance are unverified.
-
-## Blocked
-
-- Numerical verification: BLOCKED — exact GGUF unavailable.
-- CTest reproduction: BLOCKED — `cmake`/`ctest` unavailable in the current sandbox.
-
-## Generation / KV / Android
-
-- Generation: PRESENT / UNVERIFIED
-- KV cache: PRESENT / structural manual tests only; full equivalence UNVERIFIED
-- JNI: not integrated for this runtime checkpoint
-- Android inference: unverified
-
-## Tests Recorded
-
-- Manual direct-compiler tests: 9 native test programs plus benchmark executed; all returned success.
-- Syntax checks: native runtime source files passed.
-- Golden AST syntax: PASS.
-- SwiGLU expression unit check: PASS.
-- `git diff --check`: PASS.
-- CTest: not run; do not infer CTest status from manual tests.
+The implementation does not enable arbitrary shell access, deletion, remote Git push, secret access, JNI changes, Android native runtime changes, or Qwen numerical parity. No source changes were made in the preserved Qwen branch.
 
 ## Exact Next Action
 
-Obtain/verify the exact Qwen GGUF SHA-256 before executing independent Python↔C++ parity.
+Use an Android SDK-equipped build environment, run targeted tests, fix compiler/test findings, then run the broader unit suite and integrate the controller with the existing chat UI through the existing Hilt/provider boundaries. Do not start Qwen parity until the exact GGUF is available and SHA-256 verified.
