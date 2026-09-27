@@ -56,3 +56,28 @@ For Maven, use a preserved isolated cache or carefully repair only the affected 
 - Device smoke test: NOT RUN.
 - Exact Qwen GGUF: UNAVAILABLE.
 - Qwen parity: BLOCKED.
+
+## Phase 0 Migration Audit — 2026-09-27
+
+The requested independent-product migration audit is complete. No migration or broad source-code change has started.
+
+- Current repository: `Waqti-Dev/opendroid`
+- Current branch: `waqti-mvp-sprint`
+- Working tree at audit start: clean
+- Current product identity: `com.opendroid.ai` / `com.opendroid.aiagent`; OpenDroid appears in package names, Android components, UI, strings, assets, docs, and README.
+- Tracked inventory: 283 main Kotlin files, 65 unit tests, 6 instrumentation tests, 38 native C/C++ files, 13 assets, and 87 docs.
+- Existing root license: Apache License 2.0, Copyright 2026 OpenDroid Contributors.
+- No repository-level `NOTICE` or `THIRD_PARTY_LICENSES` file was found; dependency license inventory is required before release.
+- Native recovered GGUF files carry `SPDX-License-Identifier: Apache-2.0` and remain reference/research code until exact-model parity and device validation gates pass.
+- Existing app is LiteRT-oriented; it has GGUF format/runtime selection scaffolding but explicitly rejects GGUF in the current LiteRT import flow. Local GGUF is not yet a production path.
+- `Waqti-Dev/waqti`: checked with GitHub CLI and not found. No new repository was created before recording this audit checkpoint.
+
+Required audit documents now present:
+
+- `docs/WAQTI_ARCHITECTURE.md`
+- `docs/WAQTI_MIGRATION_FROM_OPENDROID.md`
+- `docs/WAQTI_OPEN_SOURCE_CREDITS.md`
+- `docs/WAQTI_LOCAL_GGUF.md`
+- `docs/WAQTI_LINT_BACKLOG.md`
+
+Migration rule: keep `opendroid/main` and `waqti-qwen-reference-runtime` unchanged; create and verify `Waqti-Dev/waqti` before pushing migrated code. Do not perform package/application-ID changes until their impact map and rollback checkpoint are approved by the next milestone evidence.
