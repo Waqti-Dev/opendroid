@@ -143,8 +143,8 @@ class AutonomousAgentEngine(
         "CreateFile" -> ToolRequest.CreateFile(call.arguments["path"].orEmpty(), call.arguments["content"].orEmpty())
         "PatchFile" -> ToolRequest.PatchFile(call.arguments["path"].orEmpty(), call.arguments["oldText"].orEmpty(), call.arguments["newText"].orEmpty())
         "DeleteFile" -> ToolRequest.DeleteFile(call.arguments["path"].orEmpty())
-        "ListFiles" -> ToolRequest.ListFiles(call.arguments["path"].ifBlank { "." }, call.arguments["recursive"].toBoolean())
-        "SearchFiles" -> ToolRequest.SearchFiles(call.arguments["query"].orEmpty(), call.arguments["path"].ifBlank { "." })
+        "ListFiles" -> ToolRequest.ListFiles(call.arguments["path"].orEmpty().ifBlank { "." }, call.arguments["recursive"].orEmpty().toBoolean())
+        "SearchFiles" -> ToolRequest.SearchFiles(call.arguments["query"].orEmpty(), call.arguments["path"].orEmpty().ifBlank { "." })
         "RunCommand" -> ToolRequest.RunCommand(call.arguments["command"].orEmpty())
         else -> null
     }

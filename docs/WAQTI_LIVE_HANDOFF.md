@@ -1,61 +1,57 @@
 # WAQTI LIVE HANDOFF
 
-- Last Updated (UTC): 2026-09-27T15:16:10Z
+- Last Updated (UTC): 2026-09-27T17:47:15Z
 - Branch: `waqti-mvp-sprint`
-- MVP starting checkpoint: `0ca348d61cf585eeb85219a38d58ab27a089b515`
+- Current committed base: `3b0bb335450b2ed209a212ee2ef9284223c0e15f`
 - Previous Qwen branch: `waqti-qwen-reference-runtime`
-- Previous Qwen documentation commit: `0ca348d61cf585eeb85219a38d58ab27a089b515`
-- Previous known-good base: `b89a255b37be33096a1ba67a3cff40efcd919b82` (`main`)
+- Main remains unchanged at `b89a255b37be33096a1ba67a3cff40efcd919b82`.
 
-## Current Phase
+## Current phase
 
-Waqti MVP implementation milestone: bounded coding-agent loop and workspace-safe tools implemented; Android build verification blocked by missing SDK.
+MVP integration/build verification. Android SDK is now installed locally and debug assembly passes. Full unit-test evidence has been collected; no new fix has been applied after evidence collection.
 
-## Preserved Checkpoint
+## What was run
 
-- Local preservation snapshot: `/home/ubuntu/WAQTI_CHECKPOINT_SNAPSHOT_20260927_1454/`
-- Source manifest entries: 79
-- Copied artifacts: 79
-- Snapshot manifest SHA-256: `adac3a218eb15ec0ff96bffaf355a25c28f35c9f24f302bf1ec293e4788cfe05`
-- The Qwen branch contains native C++ files under `app/src/main/cpp/` and the exact recovered artifact archive under `docs/waqti-runtime-checkpoint/recovered-artifacts/`.
+1. Installed the minimum SDK required by the current project: `platforms;android-36`, `build-tools;36.0.0`, and `platform-tools` under `/home/ubuntu/Android/Sdk`. Local `local.properties` points to this SDK and is untracked.
+2. Ran `./gradlew :app:assembleDebug --no-daemon`: **PASS** after fixing two nullable argument compile errors in `AutonomousAgentEngine.kt`.
+3. Ran `./gradlew :app:testDebugUnitTest --no-daemon` exactly once after build setup: **FAIL**, 515 tests completed, 5 failed, duration 2h19m34s.
 
-## Qwen Correctness Track
+## Full-suite failures
 
-- Exact GGUF: `qwen2.5-0.5b-instruct-q4_k_m.gguf` — UNAVAILABLE.
-- Required SHA-256: `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`.
-- Golden file: `docs/waqti-runtime-checkpoint/recovered-artifacts/010_waqti_multitoken_golden.py`.
-- Golden: CORRECTED / UNVERIFIED (`gate * sigmoid(gate) * up`).
-- Python↔C++ numerical parity: BLOCKED.
-- No golden, transformer, KV cache, JNI, or Android native runtime changes were made in this MVP branch.
+Four tests fail through the same Robolectric dependency resolver path: `ResourceCleanupTest`, `FinanceActionsTest`, `MediaActionsTest`, and `ToggleBluetoothActionTest`. The common artifact is `org.robolectric:android-all-instrumented:15-robolectric-13954326-i7`. The common exception is a SHA-512 mismatch for its POM. The local `.pom.sha512` sidecar begins with the JAR checksum and is concatenated with the POM checksum; Robolectric treats the first 128 characters as the POM checksum. A direct HTTP 200 fetch from Maven Central succeeded, and the remote/local POM body matches at SHA-512 `e16eb42ba12b823ede906bec317f73688c58d05ebc7f6f4c39ff555c08926515aac59dbddddd888b87c85a022d756d6aa1520cc0276e2adee2caf946ad79e659`. Classification: **external Maven/Robolectric cache metadata issue**.
 
-## MVP Milestone
+The MVP failure is `AutonomousAgentEngineTest.createUserFile_throughToolCall`, expected `COMPLETED` but got `FAILED` at the assertion in the generated report (`AutonomousAgentEngineTest.kt` test begins at line 17; assertion is line 27). The provider fixture returns the same `WriteFile` JSON forever. The executor records success, then the engine correctly requests the next model turn; after 20 repeated tool calls it returns `FAILED`. Classification: **mock/test-fixture contract bug**, not production workspace validation or parser failure.
 
-- Architecture map: PRESENT — `docs/WAQTI_MVP_ARCHITECTURE.md`.
-- Status report: PRESENT — `docs/WAQTI_MVP_STATUS.md`.
-- Bounded `AutonomousAgentEngine`: PRESENT; multi-step observations, max step limit, checkpoint updates, and cooperative cancellation are implemented.
-- Workspace tools: PRESENT; read, write, create, patch, list, and search are canonical-root constrained.
-- Terminal tool: PRESENT / SAFETY-BOUNDED; allowlisted development commands, timeout, bounded output, and destructive-fragment rejection.
-- Permission policy: PRESENT; destructive deletion and unsafe commands are denied by default.
-- Tests: ADDED / NOT EXECUTED.
+Full evidence and possible fixes are in `docs/WAQTI_FAILURE_ROOT_CAUSE_REPORT.md`.
 
-## Verification
+## Current file state
 
-- Existing recovered source manifest: 79/79 files resolved and preserved.
-- Preservation copies matched source SHA-256 and size.
-- Previous direct `g++` manual tests passed for recovered native test executables.
-- Previous C++ source syntax checks passed with `-Wall -Wextra -Wpedantic`.
-- `git diff --check`: PASS for this milestone.
-- Gradle targeted test attempt 1: BLOCKED because JDK 21 compiler was missing; JDK 21 was then installed.
-- Gradle targeted test attempt 2: BLOCKED — Android SDK is not installed; `ANDROID_HOME` and `sdk.dir` are unset.
-- Kotlin standalone compiler: unavailable (`kotlinc` not installed).
-- Android APK: NOT BUILT.
-- Device/emulator smoke test: NOT RUN.
-- Live provider calls: NOT RUN; no credentials committed.
+The only source modification after the committed MVP milestone is the already-verified nullable fix in `AutonomousAgentEngine.kt` that made `assembleDebug` pass. The test fixture has not been changed. No Robolectric dependency, cache, Qwen source, golden, KV, JNI, or Android native runtime has been changed.
 
-## Security / Non-goals
+## Exact next command
 
-The implementation does not enable arbitrary shell access, deletion, remote Git push, secret access, JNI changes, Android native runtime changes, or Qwen numerical parity. No source changes were made in the preserved Qwen branch.
+After reviewing/approving the smallest fixture fix, run only:
 
-## Exact Next Action
+```text
+./gradlew :app:testDebugUnitTest --tests '*AutonomousAgentEngineTest.createUserFile_throughToolCall'
+```
 
-Use an Android SDK-equipped build environment, run targeted tests, fix compiler/test findings, then run the broader unit suite and integrate the controller with the existing chat UI through the existing Hilt/provider boundaries. Do not start Qwen parity until the exact GGUF is available and SHA-256 verified.
+Then run the remaining agent test class, not the full suite:
+
+```text
+./gradlew :app:testDebugUnitTest --tests 'com.opendroid.ai.core.agent.AutonomousAgentEngineTest'
+```
+
+For Maven, use a preserved isolated cache or carefully repair only the affected checksum sidecar, then run one representative Robolectric test. Do not delete the existing cache and do not rerun the 515-test suite yet.
+
+## Remaining status
+
+- Android SDK: PASS.
+- Debug compilation/assemble: PASS.
+- Unit tests: FAIL, classified above.
+- Targeted MVP retest: NOT RUN.
+- Lint: NOT RUN after final source state.
+- APK artifact capture: PENDING; assembleDebug passed.
+- Device smoke test: NOT RUN.
+- Exact Qwen GGUF: UNAVAILABLE.
+- Qwen parity: BLOCKED.
