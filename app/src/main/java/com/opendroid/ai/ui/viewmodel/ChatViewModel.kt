@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opendroid.ai.core.agent.AgentLoop
+import com.opendroid.ai.core.agent.AutonomousCodingAgent
 import com.opendroid.ai.core.agent.AgentState
 import com.opendroid.ai.core.agent.ChatErrorPrimaryAction
 import com.opendroid.ai.core.agent.ChatErrorUiState
@@ -23,10 +24,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.util.UUID
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val agentLoop: AgentLoop,
+    private val autonomousCodingAgent: AutonomousCodingAgent,
     private val conversationRepository: ConversationRepository,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
@@ -160,6 +163,51 @@ class ChatViewModel @Inject constructor(
     fun sendMessage(query: String, context: Context) {
         if (query.isBlank()) return
         val sessionId = pinTaskSessionSnapshot()
+        if (query.trimStart().startsWith("/agent ")) {
+            val task = query.trimStart().removePrefix("/agent ").trim()
+            if (task.isBlank() || sessionId == null) return
+            viewModelScope.launch {
+                val taskId = UUID.randomUUID().toString()
+                conversationRepository.insertMessage(
+                    sessionId,
+                    ChatMessage(
+                        id = UUID.randomUUID().toString(),
+                        text = task,
+                        sender = ChatMessage.Sender.USER
+                    )
+                )
+                val result = runCatching {
+                    autonomousCodingAgent.execute(task, taskId)
+                }.getOrElse { error ->
+                    com.opendroid.ai.core.agent.AgentExecutionResult(
+                        taskId = taskId,
+                        output = "",
+                        provider = null,
+                        checkpoint = com.opendroid.ai.core.agent.AgentCheckpoint(
+                            taskId = taskId,
+                            prompt = task,
+                            status = com.opendroid.ai.core.agent.AgentCheckpoint.Status.FAILED,
+                            lastError = error.message ?: "Coding agent failed"
+                        )
+                    )
+                }
+                val reply = if (result.checkpoint.status == com.opendroid.ai.core.agent.AgentCheckpoint.Status.COMPLETED) {
+                    result.output.ifBlank { "Coding task completed." }
+                } else {
+                    "Coding task stopped: " + (result.checkpoint.lastError ?: "unknown error")
+                }
+                conversationRepository.insertMessage(
+                    sessionId,
+                    ChatMessage(
+                        id = UUID.randomUUID().toString(),
+                        text = reply,
+                        sender = ChatMessage.Sender.AGENT,
+                        modelBadge = result.provider ?: "Waqti Agent"
+                    )
+                )
+            }
+            return
+        }
         agentLoop.processQuery(query, context, sessionId)
     }
 
