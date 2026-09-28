@@ -363,7 +363,7 @@ class OpenDroidAccessibilityService : AccessibilityService() {
         }
     }
 
-    inner class FloatingWidgetView(context: Context) : android.widget.ImageView(context) {
+    inner class FloatingWidgetView(context: Context) : androidx.appcompat.widget.AppCompatImageView(context) {
 
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
