@@ -804,7 +804,7 @@ fun ChatBubble(
                         "Gemma 4 (On-device)" -> "ON-DEVICE (AI CORE)"
                         "On-Device AI" -> "ON-DEVICE AI"
                         "LiteRT-LM (On-device)" -> "ON-DEVICE (LITERT)"
-                        else -> message.modelBadge.uppercase(Locale.getDefault())
+                        else -> message.modelBadge.uppercase()
                     }
                     Text(
                         text = displayName,
