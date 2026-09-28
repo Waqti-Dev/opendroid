@@ -1,0 +1,71 @@
+# Waqti Runtime — Multi-Token KVCache Correctness Harness
+
+## Implemented API
+
+Added:
+
+```text
+waqti::transformer::KVCache
+waqti::attention::causal_attention(...)
+waqti::transformer::forward_layer_cached(...)
+waqti::sequence::forward(...)
+```
+
+`KVCache` stores one flat key/value array per layer. The layout is:
+
+```text
+keys[layer][position * kv_heads * head_dim + kv_head * head_dim + dimension]
+values[layer][position * kv_heads * head_dim + kv_head * head_dim + dimension]
+```
+
+For this model:
+
+```text
+layers = 24
+kv_heads = 2
+head_dim = 64
+repeat = 14 / 2 = 7
+```
+
+At position `p`, the attention routine receives exactly `p + 1` cached positions. Future positions are never visible.
+
+## Real model sequences
+
+Model: Qwen2.5-0.5B-Instruct Q4_K_M
+Prompt tokens used: `[9707]`, `[9707, 11]`, `[9707, 11, 11, 11]`
+Position: 0..N-1
+
+```text
+sequence_len=1
+position 0: hidden_rms=15.5873 argmax=102610 logit=12.9598
+
+sequence_len=2
+position 0: hidden_rms=15.5873 argmax=102610 logit=12.9598
+position 1: hidden_rms=13.4350 argmax=47865  logit=12.6375
+
+sequence_len=4
+position 0: hidden_rms=15.5873 argmax=102610 logit=12.9598
+position 1: hidden_rms=13.4350 argmax=47865  logit=12.6375
+position 2: hidden_rms=15.3332 argmax=8503   logit=11.4782
+position 3: hidden_rms=15.2238 argmax=29032  logit=13.7792
+```
+
+The position-0 result is identical between the single-token and multi-token runs, proving no future-token leakage into position 0. Positions 1–3 produce distinct causal outputs.
+
+## Tests
+
+```text
+CTest: 8/8 passed
+sequence_reference_tests: PASS
+attention_reference_tests: PASS
+KVCache ASan/UBSan: PASS
+git diff --check: PASS
+```
+
+A first sanitizer failure was a test-fixture mistake: a two-position backing vector was passed while declaring one position. The runtime correctly rejected the invalid shape. The fixture was corrected to pass a one-position slice, then all checks passed.
+
+## Scope boundary
+
+This is a reference multi-token forward correctness harness. It is not generation, sampling, persistent production KV optimization, NEON/Vulkan/QNN, or Android integration.
+
+A complete independent Python golden comparison for all 24 layers and four real tokens has not yet been claimed. Layer 0 has the existing detailed Python verification; the new multi-token path has structural causal tests, real-model sequence execution, position-0 regression, finite logits, and sanitizer coverage.

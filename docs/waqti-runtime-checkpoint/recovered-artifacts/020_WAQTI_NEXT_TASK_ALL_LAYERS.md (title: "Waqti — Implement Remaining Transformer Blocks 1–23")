@@ -1,0 +1,590 @@
+Waqti — Implement Remaining Transformer Blocks 1–23
+
+IMPORTANT — Start From The Actual Current State
+
+Do NOT repeat or redo any previously completed work.
+
+The repository already has a verified Qwen reference path through:
+
+Embedding
+  ↓
+Layer 0
+  ↓
+Second Residual
+  ↓
+Final RMSNorm
+  ↓
+LM Head
+  ↓
+151936 logits
+  ↓
+Argmax / Top-K
+
+The current Layer-0 diagnostic result is:
+
+argmax C++   = 84663
+argmax Python = 84663
+
+logits RMS error = 1.5091e-06
+
+CTest = 7/7 PASS
+ASan/UBSan = PASS
+git diff --check = PASS
+
+IMPORTANT:
+
+84663 is only the Layer-0 diagnostic token.
+
+It is NOT the final Qwen prediction because Layers 1–23 have not yet executed.
+
+OBJECTIVE
+
+Implement the remaining Qwen Transformer blocks:
+
+Layer 1
+Layer 2
+Layer 3
+...
+Layer 23
+
+using the already verified Layer-0 operators.
+
+The final pipeline must become:
+
+Token
+ ↓
+Embedding
+ ↓
+Layer 0
+ ↓
+Layer 1
+ ↓
+Layer 2
+ ↓
+...
+ ↓
+Layer 23
+ ↓
+Final RMSNorm
+ ↓
+LM Head
+ ↓
+Logits
+
+Do NOT redesign the architecture.
+
+Do NOT reimplement already verified operators.
+
+1. Create ONE generic Transformer Layer
+
+If not already present, create a reusable function conceptually equivalent to:
+
+forward_layer(layer_index, hidden_state, position)
+
+Do NOT create:
+
+forward_layer1()
+forward_layer2()
+...
+forward_layer23()
+
+There must be one implementation.
+
+The only layer-specific component should be tensor lookup based on:
+
+layer_index
+
+2. Dynamic tensor lookup
+
+For layer N, resolve the actual GGUF tensors using names equivalent to:
+
+blk.N.attn_norm.weight
+blk.N.attn_q.weight
+blk.N.attn_k.weight
+blk.N.attn_v.weight
+blk.N.attn_output.weight
+
+blk.N.ffn_norm.weight
+blk.N.ffn_gate.weight
+blk.N.ffn_up.weight
+blk.N.ffn_down.weight
+
+Do NOT blindly assume these names.
+
+Verify the actual tensor directory once and document the exact names.
+
+Use metadata lookup rather than hard-coded Layer 0 tensor references.
+
+3. Reuse the VERIFIED operators
+
+Reuse the exact implementations already validated on Layer 0:
+
+TensorView
+mmap
+F32/F16/Q5_0/Q6_K decoders
+RMSNorm
+MatVec
+Q/K/V projection
+RoPE
+GQA
+causal attention
+attention output projection
+residual
+SiLU
+SwiGLU
+MLP down projection
+
+Do not create duplicate implementations.
+
+Do not modify their numerical behavior unless a regression requires it.
+
+4. Generic layer execution
+
+The generic layer should perform:
+
+x
+ ↓
+RMSNorm(attn_norm)
+ ↓
+Q/K/V
+ ↓
+RoPE
+ ↓
+GQA
+ ↓
+causal attention
+ ↓
+attention output projection
+ ↓
+x + attention_output
+ ↓
+RMSNorm(ffn_norm)
+ ↓
+gate projection
+ ↓
+up projection
+ ↓
+SiLU(gate) × up
+ ↓
+down projection
+ ↓
+x + mlp_output
+ ↓
+layer output
+
+Use the exact architecture already verified for Layer 0.
+
+5. Preserve the current single-token model
+
+This implementation is currently a:
+
+single-token
+position 0
+reference F32
+
+forward.
+
+Do NOT add:
+
+generation
+
+autoregressive loop
+
+persistent KV cache
+
+multi-token support
+
+sampling
+
+yet.
+
+The objective is simply to execute:
+
+Layer 0 → Layer 23
+
+for one token.
+
+6. Layer 0 regression test
+
+Before running Layers 1–23, run Layer 0 through the new generic function.
+
+Compare against the already verified Layer-0 checkpoint.
+
+You do NOT need another exhaustive Python trace.
+
+Use compact regression checkpoints such as:
+
+attention_residual
+post_attention_norm
+mlp_down
+second_residual
+final_norm
+argmax
+
+The generic implementation must preserve the existing Layer-0 behavior.
+
+If Layer 0 changes unexpectedly:
+
+STOP.
+
+Fix the generic refactor before touching Layers 1–23.
+
+7. Validate layer metadata once
+
+Before executing:
+
+Layer 1 → Layer 23
+
+scan the GGUF tensor directory and verify that every layer has the required tensor families.
+
+Produce a compact report:
+
+Layer 0: complete
+Layer 1: complete
+...
+Layer 23: complete
+
+For every tensor verify only:
+
+name
+shape
+type
+payload bounds
+
+Do NOT fully decode every tensor during discovery.
+
+8. Execute Layers 1–23
+
+Once Layer 0 regression passes:
+
+hidden = embedding(token)
+
+for layer = 0..23:
+    hidden = forward_layer(layer, hidden, position=0)
+
+Then:
+
+hidden = final_rmsnorm(hidden)
+logits = lm_head(hidden)
+
+Reuse the already verified Final RMSNorm and LM Head.
+
+Do NOT rebuild them.
+
+9. Credit-efficient validation
+
+This is important.
+
+Do NOT perform exhaustive independent Python traces for all 24 layers.
+
+Layer 0 already established operator correctness.
+
+For Layers 1–23 use lightweight diagnostics:
+
+layer index
+input RMS
+output RMS
+min
+max
+mean
+finite
+
+Example:
+
+Layer 1:
+input_rms = ...
+output_rms = ...
+finite = true
+
+Layer 2:
+...
+
+This should be enough for the first full execution.
+
+10. First-divergence debugging
+
+If any layer produces:
+
+NaN
+Inf
+invalid shape
+zeroed output
+extreme unexpected magnitude
+buffer violation
+
+STOP immediately.
+
+Identify the FIRST failing layer.
+
+Example:
+
+Layer 17 failed
+
+Then only for Layer 17 perform detailed operator tracing:
+
+attn_norm
+Q
+K
+V
+RoPE
+attention
+attention_output
+attention_residual
+ffn_norm
+gate
+up
+SwiGLU
+down
+second_residual
+
+Do NOT trace all 24 layers.
+
+Do NOT regenerate all Python references.
+
+This is the required debugging strategy.
+
+11. Memory constraints
+
+Keep the existing mmap design.
+
+Do NOT:
+
+dequantize all 24 layers
+copy the entire model into RAM
+allocate all layer weights simultaneously
+
+Use:
+
+GGUF mmap
+ ↓
+lookup tensor
+ ↓
+decode required values
+ ↓
+compute
+ ↓
+next tensor
+
+The runtime must remain compatible with the eventual 12GB Android target.
+
+12. Numerical safety
+
+For every layer check:
+
+all values finite
+
+and validate:
+
+vector dimensions
+matrix dimensions
+tensor payload bounds
+
+Do not silently continue after invalid numerical output.
+
+13. Final full-model diagnostic
+
+After successful Layer 23 execution:
+
+Layer 23 output
+ ↓
+Final RMSNorm
+ ↓
+LM Head
+ ↓
+151936 logits
+
+Produce:
+
+argmax token
+top-K tokens
+max logit
+min logit
+mean logit
+logit RMS
+all_finite
+
+Important:
+
+Do NOT compare the new final argmax against 84663.
+
+84663 belongs to the Layer-0 diagnostic and should not be expected to remain the same.
+
+14. Correctness claim
+
+If Layers 1–23 execute successfully, report:
+
+24-layer single-token forward: EXECUTED
+
+Do NOT claim:
+
+full model correctness VERIFIED
+
+unless an independent full-model reference comparison exists.
+
+The existing evidence is:
+
+Layer 0:
+operator-level numerical verification
+
+Layers 1–23:
+generic execution + structural/finite diagnostics
+
+Keep these claims separate.
+
+15. Performance
+
+Only measure basic runtime:
+
+total forward time
+ms/token
+
+Do NOT optimize.
+
+Do NOT add:
+
+NEON
+Vulkan
+QNN
+Hexagon
+GPU
+NPU
+threading
+prefetch
+KV optimization
+quantized kernels
+
+yet.
+
+Correctness first.
+
+16. Tests
+
+Run:
+
+ctest --test-dir build --output-on-failure
+
+Then run:
+
+ASan
+UBSan
+
+Then:
+
+git diff --check
+
+All must pass.
+
+Add at least one regression test proving that:
+
+forward_layer(0, ...)
+
+still matches the existing Layer-0 behavior.
+
+17. Update handoff
+
+Update:
+
+WAQTI_RUNTIME_PROGRESS_HANDOFF.md
+
+Create:
+
+WAQTI_RUNTIME_110_PROGRESS.md
+
+Record:
+
+model SHA
+layer count
+generic forward implementation
+tensor lookup strategy
+Layer 0 regression
+Layers 1–23 execution
+per-layer RMS diagnostics
+final hidden diagnostics
+final logits diagnostics
+argmax
+top-K
+tests
+ASan/UBSan
+git diff --check
+runtime
+known limitations
+
+Explicitly record:
+
+Layer 0 operator correctness: VERIFIED
+Layers 1–23 single-token execution: VERIFIED
+Full-model numerical equivalence: NOT YET VERIFIED
+
+STRICTLY DO NOT
+
+Do NOT:
+
+redo Layer 0 implementation
+
+redo Q6_K investigation
+
+redo RoPE implementation
+
+redo attention implementation
+
+redo MLP implementation
+
+redo Final RMSNorm
+
+redo LM Head
+
+generate 24 independent Python references
+
+implement generation
+
+implement KV cache
+
+optimize performance
+
+add NEON
+
+add Vulkan
+
+add QNN
+
+add NPU
+
+add GPU acceleration
+
+add MoE
+
+add expert streaming
+
+The entire purpose of this task is to reuse the verified Layer-0 machinery across Layers 1–23.
+
+DEFINITION OF DONE
+
+[✓] One generic forward_layer(layer_index)
+[✓] Dynamic tensor lookup
+[✓] Layer 0 regression passes
+[✓] Layers 1–23 tensor families verified
+[✓] Layer 1 executes
+[✓] ...
+[✓] Layer 23 executes
+[✓] No NaN/Inf
+[✓] Shape validation passes
+[✓] mmap retained
+[✓] No full-model dequantization
+[✓] Final RMSNorm uses Layer 23 output
+[✓] LM Head uses Layer 23 output
+[✓] Final 151936 logits generated
+[✓] Final argmax/top-K recorded
+[✓] CTest PASS
+[✓] ASan/UBSan PASS
+[✓] git diff --check PASS
+[✓] Handoff updated
+
+FINAL INSTRUCTION
+
+Execute the implementation directly in the repository.
+
+Do not spend time re-proving already verified operators.
+
+If a failure occurs, debug only the first failing layer/operator.
+
+After reaching the definition of done, STOP and report the evidence and exact next task.

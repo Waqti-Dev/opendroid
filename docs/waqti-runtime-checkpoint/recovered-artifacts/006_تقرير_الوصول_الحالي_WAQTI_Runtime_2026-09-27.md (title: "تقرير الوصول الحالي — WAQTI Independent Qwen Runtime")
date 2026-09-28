@@ -1,0 +1,201 @@
+# تقرير الوصول الحالي — WAQTI Independent Qwen Runtime
+
+**التاريخ:** 2026-09-27 12:24 (+03:00)  
+**المشروع:** `/home/ubuntu/opendroid`  
+**النموذج المرجعي:** Qwen2.5-0.5B-Instruct Q4_K_M  
+**الهدف:** Runtime مستقل محليًا لـ Qwen على Android، دون الاعتماد على llama.cpp أو runtime خارجي.
+
+## الخلاصة التنفيذية
+
+وصل المشروع إلى **نقطة مرجعية قوية تقارب 90% من مسار correctness/reference**، مع اكتمال تنفيذ C++ المرجعي للنموذج كاملًا على المضيف، بما في ذلك 24 طبقة وKV cache متعدد التوكنات. لم يتم بعد ادعاء 95% النهائي لأن المقارنة المستقلة متعددة التوكنات ما زالت في مرحلة التحقق.
+
+الأهم: تم اكتشاف أن عدم تطابق Python golden السابق كان بسبب **خطأ في سكربت المقارنة المؤقت فقط**، وليس في C++ runtime.
+
+## ما تم إنجازه والتحقق منه
+
+### بنية النموذج والبيانات
+
+- تحليل GGUF v3 مع تحقق من الحدود والـ metadata وtensor directory.
+- استخدام `mmap` للوصول الصفري إلى بيانات النموذج.
+- التحقق من نموذج Qwen2.5-0.5B الحقيقي:
+  - embedding: `896`
+  - layers: `24`
+  - attention heads: `14`
+  - KV heads: `2`
+  - head dimension: `64`
+  - FFN: `4864`
+  - vocabulary: `151936`
+  - RMS epsilon: `1e-6`
+- SHA-256 للنموذج المرجعي:
+  `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`
+
+### Decoder والعمليات المرجعية
+
+تم تنفيذ واختبار decoders لـ:
+
+- F32
+- F16
+- Q4_K
+- Q5_0
+- Q8_0
+- Q6_K
+
+كما تم تنفيذ:
+
+- embedding lookup
+- RMSNorm
+- matrix-vector reference path
+- interleaved RoPE
+- GQA attention مع repeat factor يساوي `7`
+- Qwen SwiGLU
+- residual connections
+- final RMSNorm
+- LM head و151936 logits
+- argmax
+
+### Transformer كامل
+
+- تم تنفيذ forward pass ديناميكي لكل الطبقات `0..23`.
+- تم تجاوز مشكلة `blk.2.ffn_down.weight` من نوع Q4_K بإضافة type-12 decoder إلى المسار العام.
+- كل مخرجات الطبقات finite.
+- C++ reference execution للنموذج الكامل تعمل على المضيف.
+
+### KV cache وmulti-token
+
+تم تنفيذ:
+
+- KVCache مستقل لكل layer.
+- تخزين keys/values حسب position وKV head وhead dimension.
+- causal attention لكل المواضع السابقة والحالية.
+- sequence execution للتوكنات:
+  `[9707, 11, 11, 11]`
+
+نتائج C++ الحالية:
+
+| Position | Hidden RMS | Argmax | Logit |
+|---:|---:|---:|---:|
+| 0 | 15.5873 | 102610 | 12.9598 |
+| 1 | 13.4350 | 47865 | 12.6375 |
+| 2 | 15.3332 | 8503 | 11.4782 |
+| 3 | 15.2238 | 29032 | 13.7792 |
+
+اختبارات CTest وصلت إلى **8/8 passed**، مع مرور اختبارات ASan/UBSan الخاصة بالـ KV cache والـ sequence بعد إصلاح fixture غير صحيح.
+
+## آخر مشكلة تم تشخيصها
+
+المقارنة الأولى بين C++ وPython أعطت فروقات كبيرة من token 0. تم عزل السبب بمقارنة مراحل Layer 0:
+
+- embedding: مطابق.
+- attention وprojection وresidual: مطابق.
+- post-attention RMSNorm وgate وup: مطابق.
+- divergence ظهر في SwiGLU.
+
+كان Python golden يحسب بالخطأ:
+
+```text
+sigmoid(gate) * up
+```
+
+بينما Qwen الصحيح هو:
+
+```text
+SiLU(gate) * up = gate * sigmoid(gate) * up
+```
+
+تنفيذ C++ كان صحيحًا منذ البداية (`silu(gate) * up`). تم إصلاح:
+
+```text
+/tmp/waqti_multitoken_golden.py
+```
+
+وبدأت إعادة حساب golden لأربعة tokens بالصيغة الصحيحة. لذلك **لا ينبغي اعتماد metrics المقارنة القديمة**.
+
+## حالة التشغيل لحظة إيقاف الكريديتس
+
+- C++ traces موجودة في:
+  `/tmp/waqti_multitoken_cpp.bin`
+- Python golden المصحح قيد/كان قيد الحساب في:
+  `/tmp/waqti_multitoken_golden.py`
+- الناتج المتوقع:
+  `/tmp/waqti_multitoken_py.bin`
+- آخر handoff محدث ومحتوي على سبب الخطأ وخطوات الاستئناف:
+  `/home/ubuntu/opendroid/WAQTI_RUNTIME_PROGRESS_HANDOFF.md`
+
+## ما لم يكتمل بعد
+
+1. استخراج metrics النهائية للمقارنة المستقلة بعد تصحيح SwiGLU:
+   - Max Absolute Error
+   - RMS Error
+   - Argmax Agreement
+2. MVP-0 autoregressive generation loop.
+3. sampling policies مثل greedy وtemperature/top-k أو top-p.
+4. JNI/API production integration للتوليد الحقيقي.
+5. ARM64/NEON optimization على Snapdragon 8s Gen 4.
+6. benchmark حراري مستمر على Redmi Turbo 4 Pro.
+7. Android APK/connected-device verification؛ بيئة sandbox الحالية لا تحتوي Android SDK/NDK متاحين بشكل صالح، ولا يوجد جهاز Redmi متصل.
+
+## أوامر الاستئناف عند عودة الكريديتس
+
+```bash
+cd /home/ubuntu/opendroid
+
+# 1) التأكد من اكتمال golden
+ls -lh /tmp/waqti_multitoken_cpp.bin /tmp/waqti_multitoken_py.bin
+
+# 2) حساب metrics إذا كان ملف Python موجودًا
+python3 - <<'PY'
+import struct, numpy as np
+
+def read(p):
+    b=open(p,'rb').read(); n,h,v=struct.unpack_from('<III',b,0); o=12; out=[]
+    for _ in range(n):
+        a=np.frombuffer(b,dtype='<f4',count=h,offset=o).copy(); o+=4*h
+        c=np.frombuffer(b,dtype='<f4',count=h,offset=o).copy(); o+=4*h
+        z=np.frombuffer(b,dtype='<f4',count=v,offset=o).copy(); o+=4*v
+        out.append((a,c,z))
+    return out
+
+cpp=read('/tmp/waqti_multitoken_cpp.bin')
+py=read('/tmp/waqti_multitoken_py.bin')
+for i,(x,y) in enumerate(zip(cpp,py)):
+    print('token',i)
+    for name,a,b in zip(('hidden','final_norm','logits'),x,y):
+        d=a-b
+        print(name,'max_abs=',float(np.max(np.abs(d))),
+              'rms=',float(np.sqrt(np.mean(d*d))))
+    print('argmax_cpp=',int(x[2].argmax()),
+          'argmax_py=',int(y[2].argmax()),
+          'agree=',bool(x[2].argmax()==y[2].argmax()))
+PY
+
+# 3) إعادة build والاختبارات
+cmake -S app/src/main/cpp -B /tmp/waqti-runtime-host-build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build /tmp/waqti-runtime-host-build --parallel 2
+ctest --test-dir /tmp/waqti-runtime-host-build --output-on-failure
+```
+
+## الترتيب الصحيح بعد نجاح المقارنة
+
+1. تسجيل المقارنة المستقلة كـ VERIFIED في handoff.
+2. إضافة generation loop مع KV cache وإرجاع tokens تدريجيًا.
+3. إضافة greedy sampling أولًا، ثم temperature/top-k/top-p.
+4. إنشاء benchmark مرجعي scalar/F32 وقياس كل kernel منفصلًا.
+5. إضافة ARM64 NEON تدريجيًا، مع golden regression بعد كل kernel.
+6. تحسين dequant + dot product + matvec، ثم thread partitioning.
+7. قياس thermal throttling على الهاتف قبل تثبيت سياسة threads.
+
+## قرار تقني مهم
+
+لا يجوز بدء NEON أو Vulkan أو QNN قبل نجاح correctness comparison المصحح. المسار الحالي متوافق مع مبدأ **correctness-first**، ويحافظ على استقلالية المشروع عن llama.cpp وأي runtime خارجي.
+
+## الملفات الأساسية
+
+- [Handoff الحي](file:///home/ubuntu/opendroid/WAQTI_RUNTIME_PROGRESS_HANDOFF.md)
+- `app/src/main/cpp/transformer_layer.cpp`
+- `app/src/main/cpp/attention_reference.cpp`
+- `app/src/main/cpp/qwen_reference.cpp`
+- `/tmp/waqti_multitoken_golden.py`
+- `/tmp/waqti_multitoken_cpp.bin`
+- `/tmp/waqti_multitoken_py.bin`
+
+**الخلاصة:** المشروع لم يتوقف بسبب خلل في C++؛ تم اكتشاف خطأ golden وتصحيحه، والـ reference runtime نفسه وصل إلى تنفيذ Qwen كامل متعدد التوكنات مع KV cache. الخطوة التالية الوحيدة المطلوبة قبل التوليد والتحسين هي قراءة metrics الناتجة من golden المصحح وتوثيقها.

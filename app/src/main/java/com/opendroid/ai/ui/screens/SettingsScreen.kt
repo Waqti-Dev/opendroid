@@ -67,6 +67,7 @@ import java.util.Locale
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
+    modifier: Modifier = Modifier,
     onNavigateToBenchmark: () -> Unit,
     onNavigateToPrivacyPolicy: () -> Unit = {},
     onNavigateToTermsOfUse: () -> Unit = {},
@@ -77,8 +78,7 @@ fun SettingsScreen(
     onNavigateToNotificationHistory: () -> Unit = {},
     onNavigateToPermissions: () -> Unit = {},
     onNavigateToCrashLog: () -> Unit = {},
-    onNavigateToRoutines: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onNavigateToRoutines: () -> Unit = {}
 ) {
     val config by viewModel.llmConfig.collectAsState()
     val connectionResults by viewModel.connectionResults.collectAsState()

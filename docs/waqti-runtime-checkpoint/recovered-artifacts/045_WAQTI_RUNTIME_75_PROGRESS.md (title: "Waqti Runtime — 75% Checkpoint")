@@ -1,0 +1,42 @@
+# Waqti Runtime — 75% Checkpoint
+
+## Completed
+
+- Added tensor lookup by exact GGUF tensor name.
+- Added Qwen metadata extraction without hardcoding dimensions:
+  - embedding: 896
+  - blocks: 24
+  - attention heads: 14
+  - KV heads: 2
+  - feed-forward length: 4864
+  - context length: 32768
+  - RMS epsilon: 1e-6
+- Added a common reference tensor decoder for F32, F16, Q8_0, and Q5_0.
+- Verified real Qwen tensors through mmap:
+  - `token_embd.weight`: Q5_0, 896 × 151936
+  - `blk.0.attn_q.weight`: Q5_0, 896 × 896
+  - `blk.0.attn_k.weight`: Q5_0, 896 × 128
+  - `blk.0.attn_output.weight`: Q5_0, 896 × 896
+  - `output.weight`: Q8_0, 896 × 151936
+- All reference decoder tests pass under AddressSanitizer and UndefinedBehaviorSanitizer.
+
+## Verification
+
+```text
+CTest: 5/5 passed
+Tensor decoder ASan/UBSan: PASS
+Qwen dimensions: extracted from metadata
+Qwen Q5_0/Q8_0 tensors: decoded through mmap
+```
+
+## Not yet complete
+
+- No complete Qwen Transformer forward pass yet.
+- No embedding lookup + attention execution yet.
+- No RoPE, KV cache, logits or greedy generation yet.
+- Q5_0/Q8_0 are reference decoders, not NEON optimized kernels.
+- Android build and physical-device benchmark remain pending.
+
+## Next slice
+
+Implement a model tensor accessor and the first real Qwen operations: embedding row lookup, RMSNorm, and reference matrix-vector multiplication using decoded Q5_0 weights. Keep all dimensions metadata-driven.

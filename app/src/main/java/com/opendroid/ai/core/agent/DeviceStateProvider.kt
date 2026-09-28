@@ -12,7 +12,6 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
-import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -58,24 +57,16 @@ class DeviceStateProvider @Inject constructor(
                     val connectivityManager = context
                         .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        val network = connectivityManager.activeNetwork
-                        val capabilities = connectivityManager.getNetworkCapabilities(network)
+                    val network = connectivityManager.activeNetwork
+                    val capabilities = connectivityManager.getNetworkCapabilities(network)
 
-                        if (capabilities?.hasTransport(
-                                NetworkCapabilities.TRANSPORT_WIFI
-                            ) == true
-                        ) {
-                            "Active"      // WiFi on AND connected
-                        } else {
-                            "Enabled"     // WiFi on but not connected
-                        }
+                    if (capabilities?.hasTransport(
+                            NetworkCapabilities.TRANSPORT_WIFI
+                        ) == true
+                    ) {
+                        "Active"      // WiFi on AND connected
                     } else {
-                        // Older Android
-                        @Suppress("DEPRECATION")
-                        val networkInfo = connectivityManager
-                            .getNetworkInfo(ConnectivityManager.TYPE_WIFI)
-                        if (networkInfo?.isConnected == true) "Active" else "Enabled"
+                        "Enabled"     // WiFi on but not connected
                     }
                 }
             }
@@ -95,7 +86,6 @@ class DeviceStateProvider @Inject constructor(
             val connectivityManager = context
                 .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val network = connectivityManager.activeNetwork
                     ?: return "None"   // no active network at all
 
@@ -136,18 +126,6 @@ class DeviceStateProvider @Inject constructor(
 
                     else -> "None"
                 }
-            } else {
-                // API < 23 fallback
-                @Suppress("DEPRECATION")
-                val activeNetwork = connectivityManager.activeNetworkInfo
-                when {
-                    activeNetwork == null -> "None"
-                    !activeNetwork.isConnected -> "None"
-                    activeNetwork.type == ConnectivityManager.TYPE_WIFI -> "WiFi"
-                    activeNetwork.type == ConnectivityManager.TYPE_MOBILE -> "Mobile Data"
-                    else -> "Connected"
-                }
-            }
         } catch (e: Exception) {
             Log.e(TAG, "Connectivity read failed: ${e.message}")
             "Unknown"

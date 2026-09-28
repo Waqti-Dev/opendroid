@@ -1,0 +1,30 @@
+
+
+## 2026-09-27 — Independent multi-token comparison diagnosis
+
+Status: IN PROGRESS; the first comparison exposed a bug in the temporary Python golden, not in the C++ runtime.
+
+Finding:
+
+- Embedding row for token `9707` matched C++.
+- Layer-0 stages matched through post-attention residual, post-attention RMSNorm, gate, and up projections.
+- The Python golden used `sigmoid(gate) * up`, omitting the required gate factor.
+- Correct Qwen SwiGLU is `SiLU(gate) * up = gate * sigmoid(gate) * up`; the C++ implementation already uses this correctly.
+- This omission caused the large token-0 divergence and invalidated the previous Python comparison.
+
+Repair:
+
+- `/tmp/waqti_multitoken_golden.py` was corrected to use `gate / (1 + exp(-gate)) * up`.
+- A four-token golden rerun is active; its output must be compared against `/tmp/waqti_multitoken_cpp.bin` before claiming independent correctness.
+
+Next:
+
+1. Wait for the corrected golden output.
+2. Compute Max Abs Error, RMS Error, and argmax agreement for all four positions.
+3. If verified, mark independent multi-token correctness VERIFIED.
+4. Implement MVP-0 autoregressive generation and sampling.
+5. Only then begin ARM64/NEON optimization and benchmark gates.
+
+Explicit non-claim:
+
+- Multi-token independent correctness is not yet verified until the corrected golden metrics pass.

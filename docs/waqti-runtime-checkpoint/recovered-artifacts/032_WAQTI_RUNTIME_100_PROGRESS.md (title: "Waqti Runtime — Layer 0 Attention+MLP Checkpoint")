@@ -1,0 +1,55 @@
+# Waqti Runtime — Layer 0 Attention+MLP Checkpoint
+
+## Objective complete for this task
+
+The verified Qwen path now continues from attention residual through post-attention RMSNorm, SwiGLU MLP, and the second residual. The real Layer 0 tensor inventory is:
+
+```text
+blk.0.ffn_norm.weight  F32  896 × 1
+blk.0.ffn_gate.weight  Q5_0 896 × 4864
+blk.0.ffn_up.weight    Q5_0 896 × 4864
+blk.0.ffn_down.weight  Q6_K 4864 × 896
+```
+
+The implementation uses the real Qwen architecture:
+
+```text
+x1 = embedding + attention_projected
+mlp_input = RMSNorm(x1, blk.0.ffn_norm.weight)
+gate = ffn_gate(mlp_input)
+up = ffn_up(mlp_input)
+intermediate = SiLU(gate) * up
+mlp_down = ffn_down(intermediate)
+x2 = x1 + mlp_down
+```
+
+The Q6_K decoder was initially blocked by an incorrect assumed field order. The GGML source was checked, showing `ql[128], qh[64], scales[16], d[2]`; the decoder and fixture were corrected before accepting the MLP results. The earlier incorrect run produced non-finite values and was not accepted.
+
+## Numerical evidence
+
+A full binary trace was compared against an independent scalar Python decoder for prompt `Hello`, token `9707`, model SHA-256 `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`:
+
+```text
+post_attention_norm: max_abs=5.6505e-06, mean_abs=5.0710e-07, RMS=6.6702e-07
+gate:                max_abs=3.8647e-06, mean_abs=4.0701e-07, RMS=5.6522e-07
+up:                  max_abs=3.9792e-06, mean_abs=4.3690e-07, RMS=5.8370e-07
+SiLU(gate):          max_abs=3.9793e-06, mean_abs=2.0279e-07, RMS=3.5869e-07
+SwiGLU intermediate: max_abs=5.0617e-06, mean_abs=1.9734e-07, RMS=4.0123e-07
+mlp_down:            max_abs=2.2504e-06, mean_abs=3.8300e-07, RMS=5.0904e-07
+second_residual:     max_abs=2.2479e-06, mean_abs=3.8272e-07, RMS=5.0846e-07
+```
+
+The comparison is against an independent scalar implementation and uses separate F32 accumulation; the small differences are within the expected reference-path floating-point/quantization arithmetic tolerance. First values of `mlp_down` are `-0.0683689, -0.389710, 0.2447289, -0.1536055`; first values of `second_residual` are `-0.0849903, -0.3422503, 0.2336537, -0.1428441`.
+
+## Verification
+
+```text
+CTest: 7/7 passed
+Tensor/Q6_K ASan/UBSan: PASS
+Attention reference ASan/UBSan: PASS
+git diff --check: PASS
+```
+
+## Explicit boundary
+
+This task stops here. Final RMSNorm, LM head, logits, generation, Android production inference, NEON, Vulkan, QNN/NPU, MoE, routing, and speculative decoding remain intentionally out of scope.

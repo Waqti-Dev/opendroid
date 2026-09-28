@@ -1,0 +1,563 @@
+# WAQTI NEXT TASK — FIRST REAL QWEN INFERENCE VERTICAL SLICE
+
+## Current State
+
+The repository is currently at:
+
+`/home/ubuntu/opendroid`
+
+Branch:
+
+`main`
+
+Base HEAD:
+
+`b89a255b37be33096a1ba67a3cff40efcd919b82`
+
+The current runtime foundation has been experimentally verified to:
+
+* parse a real GGUF v3 file
+* parse Qwen tokenizer metadata
+* parse tensor directories
+* validate tensor bounds and sizes
+* build native code with CMake
+* expose JNI metadata inspection
+* run Kotlin instrumentation fixtures
+* tokenize using the extracted tokenizer data
+* execute reference F32 MatMul/RMSNorm
+* collect device capabilities
+* probe Vulkan
+* expose thermal policy information
+
+A real Qwen2.5-0.5B-Instruct Q4_K_M GGUF file is available outside Git under:
+
+`/tmp/waqti-models/`
+
+SHA-256:
+
+`74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`
+
+Architecture:
+
+`qwen2`
+
+Tokenizer vocabulary:
+
+`151936`
+
+Tokenizer merges:
+
+`151387`
+
+Tensor count:
+
+`291`
+
+## Mission
+
+Do NOT expand the project into MoE, NPU, advanced Vulkan execution, large models, or multi-backend scheduling yet.
+
+The immediate objective is:
+
+> **Make Waqti perform real inference with the actual Qwen2.5-0.5B-Instruct Q4_K_M GGUF model.**
+
+This is the first critical vertical slice.
+
+---
+
+# 1. Implement Real Qwen Inference
+
+Implement the minimum correct Qwen2 transformer execution path required by the actual model.
+
+Do not create a fake or toy Qwen implementation.
+
+The runtime must use the actual tensors from the GGUF model.
+
+At minimum investigate and implement:
+
+* token embedding
+* RMSNorm
+* attention
+* Q/K/V projections
+* rotary positional embeddings
+* attention score computation
+* causal masking
+* output projection
+* Qwen MLP / feed-forward path
+* residual connections
+* final RMSNorm
+* LM head / output projection
+* logits
+* greedy decoding initially
+
+Use the GGUF metadata to determine exact model dimensions and architecture parameters.
+
+Do NOT hardcode assumptions where metadata can provide the correct values.
+
+---
+
+# 2. Quantized Tensor Support
+
+The model is Q4_K_M.
+
+Therefore the runtime must eventually execute the actual quantized weights.
+
+Do not solve the first inference by silently converting the entire model permanently to F32.
+
+A temporary reference dequantization path is acceptable for correctness validation if necessary:
+
+```text
+Q4_K_M
+   ↓
+temporary dequantization
+   ↓
+F32 reference kernel
+```
+
+But clearly label this as:
+
+`REFERENCE / VALIDATION PATH`
+
+Then implement optimized quantized execution as the next step.
+
+The architecture should allow:
+
+```text
+Q4_K_M
+Q5_K
+Q8
+F16
+F32
+```
+
+to coexist through a common tensor/operator abstraction.
+
+---
+
+# 3. Correctness First
+
+Before optimization, compare Waqti against a trusted reference implementation.
+
+Use deterministic prompts.
+
+For example:
+
+```text
+Hello
+```
+
+and several additional short prompts.
+
+Compare:
+
+* tokenization
+* input token IDs
+* logits
+* selected next token
+* generated token sequence
+* final decoded text
+
+Where practical, compare intermediate tensors such as:
+
+* embedding output
+* RMSNorm output
+* Q/K/V
+* attention output
+* MLP output
+* final hidden state
+* logits
+
+Use tolerances appropriate to quantization and floating-point arithmetic.
+
+Do NOT declare correctness from visual similarity alone.
+
+---
+
+# 4. Build a Reference Test Harness
+
+Create a reproducible test harness that can execute:
+
+```text
+prompt
+→ Waqti inference
+→ reference inference
+→ comparison
+```
+
+Record:
+
+```text
+model SHA256
+prompt
+token IDs
+generation parameters
+seed
+temperature
+backend
+quantization path
+generated tokens
+mismatch information
+```
+
+The goal is to make regressions detectable.
+
+---
+
+# 5. Keep the Existing Toy Harness
+
+Do not delete the existing toy dense generation harness.
+
+Rename or clearly classify it as:
+
+`toy/reference test`
+
+It is useful for validating the runtime infrastructure.
+
+It must not be confused with real Qwen inference.
+
+---
+
+# 6. Android Integration
+
+After host correctness is demonstrated, expose the real inference path through JNI.
+
+Target:
+
+```text
+Kotlin
+   ↓
+JNI
+   ↓
+Waqti Native Runtime
+   ↓
+Qwen GGUF
+   ↓
+Generated tokens
+```
+
+The Android layer should not contain model execution logic.
+
+Keep the inference engine native.
+
+Kotlin should handle:
+
+* lifecycle
+* UI
+* model selection
+* request/cancellation
+* streaming callbacks
+* errors
+* configuration
+
+Native code should handle:
+
+* model loading
+* tensor execution
+* KV cache
+* inference
+* sampling
+* memory management
+
+---
+
+# 7. Do Not Optimize Everything Yet
+
+The first successful implementation may be slow.
+
+That is acceptable.
+
+The order is:
+
+```text
+CORRECT
+  ↓
+REAL
+  ↓
+MEASURED
+  ↓
+OPTIMIZED
+```
+
+Do NOT spend large amounts of time optimizing an operator before proving that the complete model executes correctly.
+
+---
+
+# 8. Establish Baseline Metrics
+
+Once real Qwen inference works, record:
+
+### Model
+
+* model SHA256
+* model size
+* parameter count if available
+* quantization
+* context length
+
+### Performance
+
+* model load time
+* first-token latency
+* prefill tok/s
+* decode tok/s
+* total generation time
+
+### Memory
+
+* process RSS
+* native heap
+* peak memory
+* KV cache size
+
+### Reliability
+
+* repeated generation
+* long generation
+* cancellation
+* reload
+* unload
+* multiple requests
+
+---
+
+# 9. Then Move to ARM64 Optimization
+
+Only after correctness:
+
+Investigate:
+
+* ARM64 NEON
+* FP32 SIMD
+* FP16
+* INT8
+* Q4_K_M optimized kernels
+* cache blocking
+* thread parallelism
+* memory alignment
+* CPU affinity
+* tensor layout
+
+Benchmark each optimization against the reference implementation.
+
+Do not assume an optimization helps.
+
+Measure it.
+
+---
+
+# 10. Then Investigate Vulkan
+
+The existing Vulkan probe is NOT evidence that Vulkan inference works.
+
+Create a microbenchmark first.
+
+Start with:
+
+```text
+GEMM / MatMul
+```
+
+Compare:
+
+```text
+CPU NEON
+vs
+Vulkan
+```
+
+using tensor sizes relevant to Qwen.
+
+Only integrate Vulkan into inference if it demonstrates a meaningful benefit.
+
+Avoid excessive CPU↔GPU synchronization.
+
+---
+
+# 11. NPU / QNN Remains Experimental
+
+Do not make QNN/NPU a dependency.
+
+Investigate only after the CPU baseline works.
+
+Follow:
+
+```text
+Probe
+→ Capability test
+→ Minimal operator
+→ Benchmark
+→ Decide
+```
+
+If access is unavailable or unreliable:
+
+```text
+fallback → CPU
+```
+
+Do not block MVP progress on NPU access.
+
+---
+
+# 12. Thermal and Memory Safety
+
+The runtime must respect the existing device policy.
+
+For the Redmi Turbo 4 Pro:
+
+* detect thermal state
+* detect available memory
+* adapt thread count where appropriate
+* avoid uncontrolled allocations
+* support cancellation
+* release model resources cleanly
+
+Do not attempt to bypass Android thermal management.
+
+---
+
+# 13. No Premature Large Models
+
+Do NOT move to:
+
+* Qwen3-Coder-30B
+* 120B MoE
+* expert streaming
+* huge context
+* multi-model routing
+
+until the real Qwen2.5-0.5B inference path is correct and benchmarked.
+
+The 0.5B model is a runtime validation target, not the final Waqti model.
+
+---
+
+# 14. Definition of Done
+
+This task is complete only when:
+
+### Host
+
+```text
+Real Qwen2.5-0.5B GGUF
+        ↓
+Waqti runtime
+        ↓
+real generation
+        ↓
+deterministic test
+        ↓
+reference comparison
+        ↓
+PASS
+```
+
+### Android
+
+```text
+Android app
+    ↓
+JNI
+    ↓
+Waqti runtime
+    ↓
+real Qwen GGUF
+    ↓
+real generated text
+```
+
+### Evidence
+
+Provide:
+
+* build command
+* build result
+* test command
+* test result
+* model hash
+* correctness comparison
+* memory measurement
+* inference speed
+* known limitations
+
+Do not claim success without actual execution evidence.
+
+---
+
+# 15. Failure Handling
+
+If full Q4_K_M execution is too large for the first implementation:
+
+Do NOT stop.
+
+Use this progression:
+
+```text
+Actual Qwen GGUF
+      ↓
+Load metadata
+      ↓
+Load tensors
+      ↓
+Dequantize selected tensors
+      ↓
+F32 reference execution
+      ↓
+Complete forward pass
+      ↓
+Correctness validation
+      ↓
+Incrementally replace dequantized operations
+      ↓
+Native Q4_K_M kernels
+```
+
+The objective is continuous progress toward the real model.
+
+---
+
+# 16. Report Before Major Refactoring
+
+Before introducing a large architectural change, document:
+
+```text
+Current limitation:
+Root cause:
+Evidence:
+Proposed solution:
+Alternatives:
+Why chosen:
+Expected impact:
+Risk:
+Rollback plan:
+```
+
+Avoid speculative rewrites.
+
+---
+
+# 17. Final Instruction
+
+Do not merely tell me how Qwen inference could be implemented.
+
+Implement it in the repository.
+
+Build it.
+
+Run it.
+
+Test it.
+
+Measure it.
+
+Fix failures.
+
+Then report the actual evidence.
+
+The next milestone is not:
+
+> "Waqti has a good inference architecture."
+
+The next milestone is:
+
+> **"Waqti actually ran a real Qwen model and generated the expected output."**

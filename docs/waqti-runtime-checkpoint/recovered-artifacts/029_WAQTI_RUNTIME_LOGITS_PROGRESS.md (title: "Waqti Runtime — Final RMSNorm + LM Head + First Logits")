@@ -1,0 +1,68 @@
+# Waqti Runtime — Final RMSNorm + LM Head + First Logits
+
+## Scope complete
+
+The verified Layer 0 second residual now passes through the real final norm and output projection:
+
+```text
+x2 = Layer-0 second residual
+  ↓
+output_norm.weight
+  ↓
+output.weight
+  ↓
+151936 logits
+  ↓
+argmax/top-k diagnostic
+```
+
+This is a Layer-0-only logits signal. It is not the true final autoregressive Qwen prediction because the remaining transformer blocks have not been implemented.
+
+## Verified GGUF tensors
+
+```text
+output_norm.weight  F32   896 × 1
+output.weight       Q8_0  896 × 151936
+vocab               151936
+hidden              896
+epsilon             1e-6
+```
+
+Both `output.weight` and `token_embd.weight` exist as separate tensors, so the LM head is not assumed to be tied. The implementation uses `mmap` and on-demand Q8_0 row decoding; it does not copy the full output matrix into RAM.
+
+## Numerical evidence
+
+Prompt: `Hello`, token ID `9707`.
+Model SHA-256: `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`.
+
+Independent scalar Python comparison over the complete vectors:
+
+```text
+final_hidden: max_abs=1.7205e-06, mean_abs=1.5456e-07, RMS=2.3990e-07
+logits[151936]: max_abs=1.7409e-05, mean_abs=1.0613e-06, RMS=1.5091e-06
+```
+
+C++ and Python agree on:
+
+```text
+argmax token: 84663
+argmax logit: 12.9157896 (C++), 12.9157913 (Python)
+top-10 IDs: 84663, 8980, 127895, 89901, 81674, 103326, 118713, 109332, 30515, 84565
+logits min/max/mean: -14.4246101 / 12.9157896 / 0.12831968
+```
+
+The tokenizer decodes diagnostic token `84663` as `imbledon` for this partial Layer-0 signal. This token must not be presented as the model's true next token until all transformer blocks are implemented.
+
+## Verification
+
+```text
+CTest: 7/7 passed
+Qwen/MLP ASan/UBSan: PASS
+Attention ASan/UBSan: PASS
+git diff --check: PASS
+FIRST_CORRECT_LOGITS: VERIFIED (for the Layer-0 diagnostic pipeline only)
+```
+
+## Explicit boundary
+
+Generation loop is not implemented. Remaining work is all transformer blocks, then final full-model logits validation, then only afterward generation and Android optimization.

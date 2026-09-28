@@ -275,14 +275,12 @@ class SystemActions @Inject constructor(
             // Register torch callback to track actual state (once)
             if (!callbackRegistered) {
                 try {
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                        cameraManager.registerTorchCallback(object : CameraManager.TorchCallback() {
-                            override fun onTorchModeChanged(cameraId: String, enabled: Boolean) {
-                                isFlashlightOn = enabled
-                            }
-                        }, null)
-                        callbackRegistered = true
-                    }
+                    cameraManager.registerTorchCallback(object : CameraManager.TorchCallback() {
+                        override fun onTorchModeChanged(cameraId: String, enabled: Boolean) {
+                            isFlashlightOn = enabled
+                        }
+                    }, null)
+                    callbackRegistered = true
                 } catch (_: Exception) {}
             }
 

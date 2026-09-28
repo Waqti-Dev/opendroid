@@ -1,10 +1,8 @@
 package com.opendroid.ai.core.tools
 
 /**
- * Foundation layer for agent tool execution.
- *
- * The agent should not directly execute actions. Every action goes through
- * this layer so permissions, logging and safety checks can be added later.
+ * Boundary for coding-agent tools. Implementations must enforce workspace and
+ * permission policy; the agent controller never touches the filesystem directly.
  */
 interface ToolExecutionLayer {
     suspend fun execute(request: ToolRequest): ExecutionResult
@@ -13,6 +11,11 @@ interface ToolExecutionLayer {
 sealed class ToolRequest {
     data class ReadFile(val path: String) : ToolRequest()
     data class WriteFile(val path: String, val content: String) : ToolRequest()
+    data class CreateFile(val path: String, val content: String) : ToolRequest()
+    data class PatchFile(val path: String, val oldText: String, val newText: String) : ToolRequest()
+    data class DeleteFile(val path: String) : ToolRequest()
+    data class ListFiles(val path: String = ".", val recursive: Boolean = false) : ToolRequest()
+    data class SearchFiles(val query: String, val path: String = ".") : ToolRequest()
     data class RunCommand(val command: String) : ToolRequest()
 }
 

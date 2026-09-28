@@ -1,0 +1,34 @@
+# Waqti Runtime — 70% Checkpoint
+
+## Completed in this checkpoint
+
+- Added `MappedFile` with read-only POSIX `mmap`.
+- Added overflow-safe tensor span validation against mapped GGUF file size.
+- Added reference-only Q4_K dequantization supporting 256-element blocks.
+- Added Q4_K synthetic correctness and truncation tests.
+- Verified 4/4 CTest tests pass.
+- Verified Q4_K test under AddressSanitizer and UndefinedBehaviorSanitizer.
+- Opened the real Qwen2.5-0.5B-Instruct Q4_K_M file through mmap.
+- Located and decoded a real Q4_K tensor: `blk.11.ffn_down.weight`, GGML type 12, payload 2,451,456 bytes.
+
+## Evidence
+
+```text
+Q4_K CTest: PASS
+CTest total: 4/4 PASS
+Q4_K ASan/UBSan: PASS
+Real tensor first value: 0.00259161
+Real tensor last value: 0.00214338
+Model SHA-256: 74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db
+```
+
+## Not yet complete
+
+- This is not complete Qwen inference.
+- Q4_K path is reference/validation only, not optimized ARM64 code.
+- Q8_0/F32/F16 tensor decoding still needs to be integrated into a common tensor abstraction.
+- Transformer execution, KV cache, logits, greedy decoding, JNI generation, Android build, and real-device measurements remain pending.
+
+## Next slice
+
+Implement tensor lookup plus Qwen dimension extraction, then decode all tensor formats required by the first real forward pass. Keep the toy dense harness and label it as test-only.

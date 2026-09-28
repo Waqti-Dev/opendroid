@@ -1,0 +1,80 @@
+index	local	original
+1	001_generation_reference.cpp	generation_reference.cpp
+2	002_generation_reference.h	generation_reference.h
+3	003_sequence_reference_tests.cpp	sequence_reference_tests.cpp
+4	004_sequence_reference.cpp	sequence_reference.cpp
+5	005_sequence_reference.h	sequence_reference.h
+6	006_تقرير_الوصول_الحالي_WAQTI_Runtime_2026-09-27.md (title: "تقرير الوصول الحالي — WAQTI Independent Qwen Runtime")	تقرير_الوصول_الحالي_WAQTI_Runtime_2026-09-27.md (title: "تقرير الوصول الحالي — WAQTI Independent Qwen Runtime")
+7	007_WAQTI_RUNTIME_PROGRESS_HANDOFF.md (title: "Waqti Runtime — Progress & Handoff")	WAQTI_RUNTIME_PROGRESS_HANDOFF.md (title: "Waqti Runtime — Progress & Handoff")
+8	008_attention_reference.cpp	attention_reference.cpp
+9	009_transformer_layer.cpp	transformer_layer.cpp
+10	010_waqti_multitoken_golden.py	waqti_multitoken_golden.py
+11	011_export_multitoken.cpp	export_multitoken.cpp
+12	012_ OpenDroid.")	WAQTI_NEXT_TASK_MULTITOKEN_KV.md (title: "أنت الآن تكمل مشروع Waqti Agent / OpenDroid.")
+13	013_WAQTI_RUNTIME_120_PROGRESS.md (title: "Waqti Runtime — Multi-Token KVCache Correctness Harness")	WAQTI_RUNTIME_120_PROGRESS.md (title: "Waqti Runtime — Multi-Token KVCache Correctness Harness")
+14	014_transformer_layer.h	transformer_layer.h
+15	015_multitoken_probe.cpp	multitoken_probe.cpp
+16	016_attention_reference_tests.cpp	attention_reference_tests.cpp
+17	017_gguf_file.cpp	gguf_file.cpp
+18	018_WAQTI_RUNTIME_110_PROGRESS.md (title: "Waqti Runtime — Layers 1–23 Generic Forward Checkpoint")	WAQTI_RUNTIME_110_PROGRESS.md (title: "Waqti Runtime — Layers 1–23 Generic Forward Checkpoint")
+19	019_WAQTI_RUNTIME_ALL_LAYERS_PROGRESS.md (title: "Waqti Runtime — Layers 1–23 Generic Forward Checkpoint")	WAQTI_RUNTIME_ALL_LAYERS_PROGRESS.md (title: "Waqti Runtime — Layers 1–23 Generic Forward Checkpoint")
+20	020_WAQTI_NEXT_TASK_ALL_LAYERS.md (title: "Waqti — Implement Remaining Transformer Blocks 1–23")	WAQTI_NEXT_TASK_ALL_LAYERS.md (title: "Waqti — Implement Remaining Transformer Blocks 1–23")
+21	021_tensor_decode_tests.cpp	tensor_decode_tests.cpp
+22	022_tensor_decode.cpp	tensor_decode.cpp
+23	023_q4_k_dequant.cpp	q4_k_dequant.cpp
+24	024_all_layers_probe.cpp	all_layers_probe.cpp
+25	025_attention_reference.h	attention_reference.h
+26	026_qwen_reference.cpp	qwen_reference.cpp
+27	027_gguf_file.h	gguf_file.h
+28	028_qwen_reference.h	qwen_reference.h
+29	029_WAQTI_RUNTIME_LOGITS_PROGRESS.md (title: "Waqti Runtime — Final RMSNorm + LM Head + First Logits")	WAQTI_RUNTIME_LOGITS_PROGRESS.md (title: "Waqti Runtime — Final RMSNorm + LM Head + First Logits")
+30	030_qwen_reference_tests.cpp	qwen_reference_tests.cpp
+31	031_WAQTI_NEXT_TASK_FINAL_LOGITS.md (title: "Waqti — Continue From Layer 0 Verified: Final RMSNorm + LM Head + First Logits")	WAQTI_NEXT_TASK_FINAL_LOGITS.md (title: "Waqti — Continue From Layer 0 Verified: Final RMSNorm + LM Head + First Logits")
+32	032_WAQTI_RUNTIME_100_PROGRESS.md (title: "Waqti Runtime — Layer 0 Attention+MLP Checkpoint")	WAQTI_RUNTIME_100_PROGRESS.md (title: "Waqti Runtime — Layer 0 Attention+MLP Checkpoint")
+33	033_WAQTI_NEXT_TASK_MLP_RESIDUAL.md (title: "Waqti — Continue From Checkpoint 95: Post-Attention RMSNorm + Qwen MLP + Second Residual")	WAQTI_NEXT_TASK_MLP_RESIDUAL.md (title: "Waqti — Continue From Checkpoint 95: Post-Attention RMSNorm + Qwen MLP + Second Residual")
+34	034_WAQTI_RUNTIME_95_PROGRESS.md (title: "Waqti Runtime — 95% Checkpoint")	WAQTI_RUNTIME_95_PROGRESS.md (title: "Waqti Runtime — 95% Checkpoint")
+35	035_WAQTI_NEXT_TASK_OUTPUT_RESIDUAL.md (title: "Waqti — Continue From Checkpoint 90: Attention Output Projection + Residual")	WAQTI_NEXT_TASK_OUTPUT_RESIDUAL.md (title: "Waqti — Continue From Checkpoint 90: Attention Output Projection + Residual")
+36	036_WAQTI_RUNTIME_90_PROGRESS.md (title: "Waqti Runtime — 90% Checkpoint")	WAQTI_RUNTIME_90_PROGRESS.md (title: "Waqti Runtime — 90% Checkpoint")
+37	037_WAQTI_NEXT_TASK_ATTENTION_ROPE.md (title: "NEXT OBJECTIVE")	WAQTI_NEXT_TASK_ATTENTION_ROPE.md (title: "NEXT OBJECTIVE")
+38	038_WAQTI_RUNTIME_85_PROGRESS.md (title: "Waqti Runtime — 85% Checkpoint")	WAQTI_RUNTIME_85_PROGRESS.md (title: "Waqti Runtime — 85% Checkpoint")
+39	039_WAQTI_NEXT_TASK_QKV_PROJECTION.md (title: "Phase 1 — Reference Matrix × Vector")	WAQTI_NEXT_TASK_QKV_PROJECTION.md (title: "Phase 1 — Reference Matrix × Vector")
+40	040_WAQTI_RUNTIME_80_PROGRESS.md (title: "Waqti Runtime — 80% Checkpoint")	WAQTI_RUNTIME_80_PROGRESS.md (title: "Waqti Runtime — 80% Checkpoint")
+41	041_WAQTI_NEXT_TASK_QWEN_FORWARD_FOUNDATION.md (title: "1. Model Tensor Accessor")	WAQTI_NEXT_TASK_QWEN_FORWARD_FOUNDATION.md (title: "1. Model Tensor Accessor")
+42	042_tokenizer.h	tokenizer.h
+43	043_runtime_primitives_tests.cpp	runtime_primitives_tests.cpp
+44	044_tensor_primitives.h	tensor_primitives.h
+45	045_WAQTI_RUNTIME_75_PROGRESS.md (title: "Waqti Runtime — 75% Checkpoint")	WAQTI_RUNTIME_75_PROGRESS.md (title: "Waqti Runtime — 75% Checkpoint")
+46	046_gguf_reader.cpp	gguf_reader.cpp
+47	047_gguf_reader.h	gguf_reader.h
+48	048_tensor_decode.h	tensor_decode.h
+49	049_q4_k_dequant.h	q4_k_dequant.h
+50	050_WAQTI_RUNTIME_70_PROGRESS.md (title: "Waqti Runtime — 70% Checkpoint")	WAQTI_RUNTIME_70_PROGRESS.md (title: "Waqti Runtime — 70% Checkpoint")
+51	051_q4_k_dequant_tests.cpp	q4_k_dequant_tests.cpp
+52	052_WAQTI_NEXT_TASK_QWEN_INFERENCE.md (title: "WAQTI NEXT TASK — FIRST REAL QWEN INFERENCE VERTICAL SLICE")	WAQTI_NEXT_TASK_QWEN_INFERENCE.md (title: "WAQTI NEXT TASK — FIRST REAL QWEN INFERENCE VERTICAL SLICE")
+53	053_matmul_benchmark.cpp	matmul_benchmark.cpp
+54	054_WAQTI_DEVICE_PROFILE.md (title: "Waqti Device Profile — Redmi Turbo 4 Pro")	WAQTI_DEVICE_PROFILE.md (title: "Waqti Device Profile — Redmi Turbo 4 Pro")
+55	055_WaqtiDeviceProfile.kt	WaqtiDeviceProfile.kt
+56	056_CMakeLists.txt	CMakeLists.txt
+57	057_SKILL.md	SKILL.md
+58	058_SKILL.md	SKILL.md
+59	059_README.md (title: "Waqti Experimental Lab")	README.md (title: "Waqti Experimental Lab")
+60	060_WAQTI_EXPERIMENTAL_RESEARCH_DIRECTIVE.md (title: "WAQTI — EXPERIMENTAL RESEARCH & MVP ACCELERATION DIRECTIVE")	WAQTI_EXPERIMENTAL_RESEARCH_DIRECTIVE.md (title: "WAQTI — EXPERIMENTAL RESEARCH & MVP ACCELERATION DIRECTIVE")
+61	061_pasted_content.txt	pasted_content.txt
+62	062_gguf_reader_tests.cpp	gguf_reader_tests.cpp
+63	063_tokenizer.cpp	tokenizer.cpp
+64	064_NativeGgufInspectorTest.kt	NativeGgufInspectorTest.kt
+65	065_toy_dense_model.cpp	toy_dense_model.cpp
+66	066_tensor_primitives.cpp	tensor_primitives.cpp
+67	067_WAQTI_RUNTIME_65_PROGRESS.md (title: "Waqti Runtime — 65% Progress Checkpoint")	WAQTI_RUNTIME_65_PROGRESS.md (title: "Waqti Runtime — 65% Progress Checkpoint")
+68	068_toy_dense_model_tests.cpp	toy_dense_model_tests.cpp
+69	069_toy_dense_model.h	toy_dense_model.h
+70	070_proguard-rules.pro	proguard-rules.pro
+71	071_build.gradle	build.gradle
+72	072_NativeGgufInspector.kt	NativeGgufInspector.kt
+73	073_native_bridge.cpp	native_bridge.cpp
+74	074_LLMProvider.kt	LLMProvider.kt
+75	075_ModelImporter.kt	ModelImporter.kt
+76	076_ModelRepository.kt	ModelRepository.kt
+77	077_ModelRuntime.kt	ModelRuntime.kt
+78	078_WAQTI_MASTER_HANDOFF.md	WAQTI_MASTER_HANDOFF.md
+79	079_تقرير_التقدّم_وتسليم_الاستئناف_—_Waqti_Runtime.md	تقرير_التقدّم_وتسليم_الاستئناف_—_Waqti_Runtime.md
