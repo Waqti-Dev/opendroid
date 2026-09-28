@@ -16,6 +16,28 @@ int main() {
     assert(tokenizer.decode(ids) == "abc");
     assert(tokenizer.encode("z")[0] == 99);
 
+    // Qwen/GPT-style byte BPE stores non-ASCII UTF-8 bytes as mapped Unicode
+    // code points in the GGUF vocabulary. Verify Arabic and mixed text round-trip
+    // through that representation rather than falling back to unknown tokens.
+    waqti::tokenizer::Model qwen_model;
+    qwen_model.unknown_id = 999;
+    const std::vector<std::string> qwen_pieces = {
+        u8"Ù", u8"ħ", u8"Ø", u8"±", u8"Ń", u8"¨", u8"§",
+        "H", "e", "l", "o", u8"Ġ"
+    };
+    int32_t next_id = 10;
+    for (const auto& piece : qwen_pieces) {
+        qwen_model.vocab[piece] = next_id;
+        qwen_model.reverse_vocab[next_id] = piece;
+        ++next_id;
+    }
+    waqti::tokenizer::ByteBpeTokenizer qwen_tokenizer(qwen_model);
+    const auto arabic_ids = qwen_tokenizer.encode(u8"مرحبا");
+    assert(arabic_ids.size() == 10);
+    assert(qwen_tokenizer.decode(arabic_ids) == u8"مرحبا");
+    const auto mixed_ids = qwen_tokenizer.encode(u8"Hello مرحبا");
+    assert(qwen_tokenizer.decode(mixed_ids) == u8"Hello مرحبا");
+
     using waqti::tensor::Matrix;
     Matrix a{2, 3, {1, 2, 3, 4, 5, 6}};
     Matrix b{3, 2, {7, 8, 9, 10, 11, 12}};

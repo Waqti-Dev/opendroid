@@ -286,6 +286,7 @@ class DeviceStateProvider @Inject constructor(
                     country != null -> country
                     else -> String.format(Locale.US, "%.4f, %.4f", lat, lng)
                 }
+            } else {
                 String.format(Locale.US, "%.4f, %.4f", lat, lng)
             }
         } catch (e: Exception) {
