@@ -18,17 +18,30 @@ class ToolPermissionManager {
             "./gradlew", "gradle", "git", "ls", "pwd", "find", "grep", "rg",
             "python", "python3", "node", "npm", "cat", "head", "tail"
         )
+
         private val forbiddenFragments = listOf(
             "git push", "git commit", "git reset", "git clean", "git checkout",
-            "rm ", "rm\\t", "sudo", "chmod", "chown", "dd ", "mkfs", "> /", ">/"
+            "rm ", "rm\\t", "sudo", "chmod", "chown", "dd ", "mkfs", "> /", ">/",
+            " -c ", " -e ", " --eval", " -C ", " --work-tree", " --git-dir"
         )
 
         fun isSafeCommand(command: String): Boolean {
             val normalized = command.trim()
             if (normalized.isBlank() || normalized.length > 500) return false
-            if (normalized.any { it in ";|&<>`" } || normalized.contains("\u0024(")) return false
+            if (normalized.any { it in ";|&<>\`" } || normalized.contains("\u0024(")) return false
+
             val first = normalized.substringBefore(' ').substringBefore('\t')
             if (first !in allowedFirstTokens) return false
+
+            // Keep command arguments relative to the agent workspace. This blocks
+            // ../ traversal and absolute filesystem paths at the policy boundary.
+            val tokens = normalized.split(Regex("\\s+"))
+            if (tokens.any { token ->
+                    token == ".." || token.startsWith("../") || token.contains("/../") ||
+                    token.startsWith("/\\") || token.startsWith("/data/") ||
+                    token.startsWith("/sdcard/") || token.startsWith("/storage/")
+                }) return false
+
             return forbiddenFragments.none { normalized.contains(it, ignoreCase = true) }
         }
     }
