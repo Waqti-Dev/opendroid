@@ -42,6 +42,7 @@ class LLMProviderFactory @Inject constructor(
     private val customOpenAIProvider: Provider<CustomOpenAIProvider>,
     private val gemmaProvider: Provider<GemmaProvider>,
     private val liteRTLMProvider: Provider<LiteRTLMProvider>,
+    private val localGgufProvider: Provider<LocalGgufProvider>,
     private val hybridOnDeviceProvider: Provider<HybridOnDeviceProvider>,
     private val settingsRepository: SettingsRepository,
     private val onDeviceLatencyTracker: OnDeviceLatencyTracker,
@@ -69,6 +70,7 @@ class LLMProviderFactory @Inject constructor(
             "Gemma 4 (On-device)" -> hybridOnDeviceProvider.get()
             // Direct backend access (for advanced users / testing)
             "LiteRT-LM (On-device)" -> liteRTLMProvider.get()
+            ProviderCatalog.LOCAL_GGUF -> localGgufProvider.get()
             else -> {
                 Log.w(TAG, "Unknown LLM provider persisted; falling back to Google Gemini.")
                 geminiProvider.get()

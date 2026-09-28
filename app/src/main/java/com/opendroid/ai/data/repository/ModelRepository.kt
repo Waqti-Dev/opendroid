@@ -16,6 +16,8 @@ import com.opendroid.ai.data.db.dao.markDownloadFailed
 import com.opendroid.ai.data.db.dao.clearDownloadState
 import com.opendroid.ai.data.models.withActiveProvider
 import com.opendroid.ai.data.models.withSelectedModel
+import com.opendroid.ai.core.runtime.gguf.LocalGgufModelStore
+import com.opendroid.ai.core.runtime.jni.NativeGgufInspector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -40,6 +42,7 @@ class ModelRepository @Inject constructor(
     private val artifactManifestStore = ModelArtifactManifestStore()
     private val artifactVerifier = ModelArtifactVerifier()
     private val artifactInstaller = ModelArtifactInstaller()
+    private val localGgufModelStore = LocalGgufModelStore(context)
 
     // Coordinate initialization to ensure it runs exactly once
     private val initMutex = Mutex()
@@ -208,15 +211,9 @@ class ModelRepository @Inject constructor(
     suspend fun importCustomLocalModel(uri: android.net.Uri): ImportLocalModelResult =
         withContext(Dispatchers.IO) {
             val displayName = resolveDisplayName(uri)
-            if (ModelStoragePaths.isLikelyUnsupportedGguf(displayName)) {
-                return@withContext ImportLocalModelResult.Failure(
-                    "GGUF is not supported. OpenDroid on-device models must be LiteRT (.task or .litertlm). " +
-                        "Convert the model or pick a LiteRT build from Hugging Face litert-community."
-                )
-            }
             val safeFilename = ModelStoragePaths.sanitizeImportFilename(displayName)
                 ?: return@withContext ImportLocalModelResult.Failure(
-                    "Unsupported file type. Import a LiteRT model with a .task or .litertlm extension."
+                    "Unsupported file type. Import a GGUF, LiteRT .task, or .litertlm model."
                 )
 
             val modelId = allocateCustomModelId(safeFilename)
@@ -278,9 +275,10 @@ class ModelRepository @Inject constructor(
             )
         }
         var spec = initialSpec
-        val targetFile = ModelStoragePaths.targetFile(dir, spec)
-        val manifestFile = ModelStoragePaths.manifestFile(dir)
-        val temporaryImport = File.createTempFile(".model-import-", ".tmp", context.cacheDir)
+            val targetFile = ModelStoragePaths.targetFile(dir, spec)
+            val manifestFile = ModelStoragePaths.manifestFile(dir)
+            val temporaryImport = File.createTempFile(".model-import-", ".tmp", context.cacheDir)
+            val isGguf = targetFile.extension.equals("gguf", ignoreCase = true)
 
         return try {
             val input = context.contentResolver.openInputStream(uri)
@@ -322,7 +320,16 @@ class ModelRepository @Inject constructor(
                 target = targetFile,
                 manifestFile = manifestFile,
                 spec = spec,
-                verifyFormat = { LiteRtCompatibility.verify(it, context.cacheDir) }
+                verifyFormat = { file ->
+                    if (isGguf) {
+                        val inspection = NativeGgufInspector.inspectFile(file.absolutePath)
+                        check(inspection.ok && inspection.inferenceSupported) {
+                            inspection.error ?: "GGUF is not a supported Qwen2 model."
+                        }
+                    } else {
+                        LiteRtCompatibility.verify(file, context.cacheDir)
+                    }
+                }
             )
             if (install is ArtifactVerificationResult.Invalid) {
                 if (install.failure == ArtifactVerificationFailure.LITERT_RUNTIME_INCOMPATIBLE) {
@@ -335,7 +342,8 @@ class ModelRepository @Inject constructor(
                 }
                 if (install.failure == ArtifactVerificationFailure.FORMAT_INVALID) {
                     return ImportLocalModelResult.Failure(
-                        "LiteRT could not open this file. Ensure it is a valid .litertlm or .task model."
+                        if (isGguf) "Native GGUF inspection failed. Ensure this is a valid Qwen2 GGUF model."
+                        else "LiteRT could not open this file. Ensure it is a valid .litertlm or .task model."
                     )
                 }
                 return ImportLocalModelResult.Failure(
@@ -343,9 +351,13 @@ class ModelRepository @Inject constructor(
                 )
             }
 
-            val refFile = File(context.filesDir, "litert_models/${modelId}.litertlm")
-            refFile.parentFile?.mkdirs()
-            refFile.writeText(dir.absolutePath)
+            if (isGguf) {
+                localGgufModelStore.setActive(modelId, targetFile.absolutePath)
+            } else {
+                val refFile = File(context.filesDir, "litert_models/${modelId}.litertlm")
+                refFile.parentFile?.mkdirs()
+                refFile.writeText(dir.absolutePath)
+            }
 
             if (registerCustomEntity) {
                 val now = System.currentTimeMillis()

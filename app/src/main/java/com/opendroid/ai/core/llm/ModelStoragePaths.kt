@@ -13,7 +13,7 @@ object ModelStoragePaths {
     /** A lightweight import sanity check; it never establishes artifact integrity. */
     const val MIN_LOCAL_IMPORT_BYTES = 10L * 1024 * 1024
     private val SAFE_PATH_COMPONENT = Regex("^[A-Za-z0-9][A-Za-z0-9._-]*$")
-    private val SUPPORTED_IMPORT_EXTENSIONS = setOf("litertlm", "task")
+    private val SUPPORTED_IMPORT_EXTENSIONS = setOf("litertlm", "task", "gguf")
 
     fun folderName(modelId: String): String = when {
         OnDeviceModelRegistry.isCustomId(modelId) -> modelId
@@ -26,8 +26,7 @@ object ModelStoragePaths {
 
     /**
      * Turns a user-facing filename into a safe single path component for sandboxed storage.
-     * Only `.litertlm` and `.task` are accepted. Returns null for unsupported formats
-     * (e.g. GGUF) so callers can surface a clear error.
+     * Only `.litertlm`, `.task`, and `.gguf` are accepted. Returns null for unsupported formats.
      */
     fun sanitizeImportFilename(rawName: String): String? {
         val leaf = rawName

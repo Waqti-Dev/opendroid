@@ -127,8 +127,8 @@ class ModelStoragePathsTest {
     }
 
     @Test
-    fun `sanitizeImportFilename rejects gguf and other extensions`() {
-        assertNull(ModelStoragePaths.sanitizeImportFilename("model.gguf"))
+    fun `sanitizeImportFilename accepts gguf and rejects other extensions`() {
+        assertEquals("model.gguf", ModelStoragePaths.sanitizeImportFilename("model.gguf"))
         assertNull(ModelStoragePaths.sanitizeImportFilename("weights.bin"))
         assertTrue(ModelStoragePaths.isLikelyUnsupportedGguf("llama-7b-q4.gguf"))
     }

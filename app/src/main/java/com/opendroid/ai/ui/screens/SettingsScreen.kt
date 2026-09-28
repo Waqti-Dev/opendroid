@@ -101,7 +101,8 @@ fun SettingsScreen(
         "Copilot API",
         "Custom OpenAI Compatible",
         "Ollama",
-        "On-Device AI"
+        "On-Device AI",
+        "Local GGUF"
     )
 
     var providerDropdownExpanded by remember { mutableStateOf(false) }
@@ -965,7 +966,7 @@ fun SettingsScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Runs without Google AI Core. Models tagged PUBLIC (Qwen, the Gemma 4 community mirrors) need no HF token; models tagged GATED (the Google-hosted Gemma 3n builds) do. Or import your own .task / .litertlm file.",
+                                text = "Runs without Google AI Core. Models tagged PUBLIC (Qwen, the Gemma 4 community mirrors) need no HF token; models tagged GATED (the Google-hosted Gemma 3n builds) do. Or import your own .task, .litertlm, or .gguf file.",
                                 fontSize = 10.sp,
                                 color = TextSecondary
                             )
@@ -1297,7 +1298,7 @@ fun SettingsScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Import any .task or .litertlm file as its own model (not tied to a catalog slot). GGUF is not supported yet.",
+                                text = "Import a .task, .litertlm, or Qwen2 .gguf file as its own local model. GGUF files are inspected by the native runtime before installation.",
                                 fontSize = 10.sp,
                                 color = TextSecondary
                             )
@@ -2551,7 +2552,7 @@ fun SettingsScreen(
                         else -> {
                             Text(
                                 text = localImportStatus
-                                    ?: "Failed to import model. Please make sure it is a valid LiteRT model file (.task or .litertlm) and is not corrupted.",
+                                    ?: "Failed to import model. Please make sure it is a valid LiteRT (.task/.litertlm) or Qwen2 GGUF file and is not corrupted.",
                                 color = Color.Red
                             )
                         }

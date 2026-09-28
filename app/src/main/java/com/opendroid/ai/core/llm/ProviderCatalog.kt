@@ -14,6 +14,7 @@ object ProviderCatalog {
 
     const val ON_DEVICE = "On-Device AI"
     const val LEGACY_ON_DEVICE = "Gemma 4 (On-device)"
+    const val LOCAL_GGUF = "Local GGUF"
 
     /**
      * The model a provider starts on before its live list has been fetched.
@@ -39,6 +40,7 @@ object ProviderCatalog {
         ProviderSpec("Ollama", "llama3"),
         ProviderSpec(ON_DEVICE, "gemma-4-on-device"),
         ProviderSpec("LiteRT-LM (On-device)", "gemma3-1b-it"),
+        ProviderSpec(LOCAL_GGUF, "qwen2.5-0.5b-instruct-q4_k_m"),
         // Compatibility entry for the directly addressable AI Core backend.
         // Its persisted key is normalized to the unified on-device provider.
         ProviderSpec(LEGACY_ON_DEVICE, "gemma-4-on-device", ON_DEVICE)
@@ -77,7 +79,7 @@ object ProviderCatalog {
     }
 
     fun isOnDevice(providerName: String): Boolean = when (canonicalName(providerName)) {
-        ON_DEVICE, "LiteRT-LM (On-device)" -> true
+        ON_DEVICE, "LiteRT-LM (On-device)", LOCAL_GGUF -> true
         else -> false
     }
 }
