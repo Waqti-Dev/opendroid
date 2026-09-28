@@ -2,6 +2,7 @@ package com.opendroid.ai.core.agent
 
 import com.opendroid.ai.core.providers.Provider
 import com.opendroid.ai.core.providers.ProviderManager
+import com.opendroid.ai.core.tools.DefaultToolExecutor
 import com.opendroid.ai.core.tools.ExecutionResult
 import com.opendroid.ai.core.tools.ToolExecutionLayer
 import com.opendroid.ai.core.tools.ToolPermissionManager
@@ -57,6 +58,38 @@ class AutonomousAgentEngineTest {
         assertEquals("Final answer after observation", result.output)
         assertEquals(2, provider.prompts.size)
         assertTrue(provider.prompts[1].contains("ReadFile succeeded"))
+    }
+
+    @Test
+    fun commandFailure_isObserved_thenAgentCorrects_andSucceeds() = runBlocking {
+        val provider = SequencedProvider(
+            """{"toolCall":{"name":"RunCommand","arguments":{"command":"ls missing.txt"}}}""",
+            """{"toolCall":{"name":"CreateFile","arguments":{"path":"missing.txt","content":"fixed"}}}""",
+            """{"toolCall":{"name":"RunCommand","arguments":{"command":"ls missing.txt"}}}""",
+            "Verified: missing.txt now exists"
+        )
+        val manager = ProviderManager().apply { register(provider) }
+        val workspace = java.nio.file.Files.createTempDirectory("waqti-agent-test").toFile()
+        try {
+            val engine = AutonomousAgentEngine(
+                manager,
+                DefaultToolExecutor(workspaceRoot = workspace),
+                ToolPermissionManager(),
+                maxSteps = 5
+            )
+
+            val result = engine.execute("Ensure missing.txt exists")
+
+            assertEquals(AgentCheckpoint.Status.COMPLETED, result.checkpoint.status)
+            assertEquals("Verified: missing.txt now exists", result.output)
+            assertEquals(4, provider.prompts.size)
+            assertTrue(provider.prompts[1].contains("RunCommand failed"))
+            assertTrue(provider.prompts[2].contains("File created: missing.txt"))
+            assertTrue(provider.prompts[3].contains("RunCommand succeeded"))
+            assertTrue(java.io.File(workspace, "missing.txt").isFile)
+        } finally {
+            workspace.deleteRecursively()
+        }
     }
 
     @Test
