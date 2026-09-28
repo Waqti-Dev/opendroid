@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import androidx.core.content.edit
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -65,7 +66,7 @@ class SocialManager @Inject constructor(
 
     fun setAutomationLevel(level: AutomationLevel) {
         _automationLevel.value = level
-        prefs.edit().putString(KEY_AUTOMATION_LEVEL, level.name).apply()
+        prefs.edit { putString(KEY_AUTOMATION_LEVEL, level.name) }
     }
 
     // ── ACCOUNTS ─────────────────────────────────────────────────────────────

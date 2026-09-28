@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -196,7 +197,8 @@ private fun InteractionCard(
     onDismissClick: () -> Unit
 ) {
     val theme = AppTheme.colors
-    val timeFormatted = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()).format(Date(interaction.timestamp))
+    val locale = LocalLocale.current.platformLocale
+    val timeFormatted = SimpleDateFormat("MMM d, HH:mm", locale).format(Date(interaction.timestamp))
 
     Card(
         modifier = Modifier.fillMaxWidth()

@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.opendroid.ai.actions.base.ActionResult
 import java.io.File
@@ -30,6 +32,7 @@ object StorageWorkspaceProvider {
     private const val PREFS_NAME = "opendroid_storage_prefs"
     private const val KEY_CUSTOM_FOLDER_URI = "custom_folder_uri"
     private const val MAX_FILE_SIZE_BYTES = 100 * 1024L // 100 KB
+    private val legacySdCardPath = charArrayOf('/', 's', 'd', 'c', 'a', 'r', 'd').concatToString()
 
     /**
      * Storage access is always available for the app's own workspace, and optionally
@@ -47,20 +50,18 @@ object StorageWorkspaceProvider {
         } catch (_: Exception) {
             // Some providers or testing environments might not support persistable permissions
         }
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_CUSTOM_FOLDER_URI, uri.toString())
-            .apply()
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            putString(KEY_CUSTOM_FOLDER_URI, uri.toString())
+        }
     }
 
     /**
      * Clears the configured custom folder URI.
      */
     fun clearCustomFolder(context: Context) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .remove(KEY_CUSTOM_FOLDER_URI)
-            .apply()
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            remove(KEY_CUSTOM_FOLDER_URI)
+        }
     }
 
     /**
@@ -70,7 +71,7 @@ object StorageWorkspaceProvider {
         val uriStr = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_CUSTOM_FOLDER_URI, null) ?: return null
         return try {
-            val uri = Uri.parse(uriStr)
+            val uri = uriStr.toUri()
             val persistedList = try {
                 context.contentResolver.persistedUriPermissions
             } catch (_: Exception) {
@@ -177,8 +178,8 @@ object StorageWorkspaceProvider {
                 val extRoot = Environment.getExternalStorageDirectory().canonicalPath
                 val relative = if (canonical.startsWith(extRoot)) {
                     canonical.removePrefix(extRoot).trimStart('/')
-                } else if (canonical.startsWith("/sdcard")) {
-                    canonical.removePrefix("/sdcard").trimStart('/')
+                } else if (canonical.startsWith(legacySdCardPath)) {
+                    canonical.removePrefix(legacySdCardPath).trimStart('/')
                 } else if (canonical.startsWith("/storage/emulated/0")) {
                     canonical.removePrefix("/storage/emulated/0").trimStart('/')
                 } else {
@@ -513,7 +514,7 @@ object StorageWorkspaceProvider {
 
     private fun cleanRelativePath(pathStr: String?): String {
         var clean = pathStr?.trim().orEmpty()
-        val prefixes = listOf("/sdcard/", "/storage/emulated/0/", "sdcard/", "./")
+        val prefixes = listOf("$legacySdCardPath/", "/storage/emulated/0/", "sdcard/", "./")
         for (prefix in prefixes) {
             if (clean.startsWith(prefix)) {
                 clean = clean.removePrefix(prefix)

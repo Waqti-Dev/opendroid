@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -288,7 +289,8 @@ private fun RuleCard(
 @Composable
 private fun AuditLogItem(log: SocialAuditEntry) {
     val theme = AppTheme.colors
-    val timeFormat = SimpleDateFormat("MMM d, HH:mm:ss", Locale.getDefault())
+    val locale = LocalLocale.current.platformLocale
+    val timeFormat = SimpleDateFormat("MMM d, HH:mm:ss", locale)
 
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -331,7 +333,7 @@ private fun AddRuleDialog(
     var ruleName by remember { mutableStateOf("") }
     var selectedTrigger by remember { mutableStateOf("SENTIMENT_POSITIVE") }
     var selectedAction by remember { mutableStateOf("AUTO_REPLY") }
-    var confidence by remember { mutableStateOf(0.85f) }
+    var confidence by remember { mutableFloatStateOf(0.85f) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
