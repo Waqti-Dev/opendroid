@@ -57,23 +57,16 @@ class DeviceStateProvider @Inject constructor(
                     val connectivityManager = context
                         .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-                        val network = connectivityManager.activeNetwork
-                        val capabilities = connectivityManager.getNetworkCapabilities(network)
+                    val network = connectivityManager.activeNetwork
+                    val capabilities = connectivityManager.getNetworkCapabilities(network)
 
-                        if (capabilities?.hasTransport(
-                                NetworkCapabilities.TRANSPORT_WIFI
-                            ) == true
-                        ) {
-                            "Active"      // WiFi on AND connected
-                        } else {
-                            "Enabled"     // WiFi on but not connected
-                        }
+                    if (capabilities?.hasTransport(
+                            NetworkCapabilities.TRANSPORT_WIFI
+                        ) == true
+                    ) {
+                        "Active"      // WiFi on AND connected
                     } else {
-                        // Older Android
-                        @Suppress("DEPRECATION")
-                        val networkInfo = connectivityManager
-                            .getNetworkInfo(ConnectivityManager.TYPE_WIFI)
-                        if (networkInfo?.isConnected == true) "Active" else "Enabled"
+                        "Enabled"     // WiFi on but not connected
                     }
                 }
             }
