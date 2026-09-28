@@ -57,7 +57,6 @@ class DeviceStateProvider @Inject constructor(
                     val connectivityManager = context
                         .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                         val network = connectivityManager.activeNetwork
                         val capabilities = connectivityManager.getNetworkCapabilities(network)
 
@@ -94,7 +93,6 @@ class DeviceStateProvider @Inject constructor(
             val connectivityManager = context
                 .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val network = connectivityManager.activeNetwork
                     ?: return "None"   // no active network at all
 
@@ -135,7 +133,6 @@ class DeviceStateProvider @Inject constructor(
 
                     else -> "None"
                 }
-            } else {
         } catch (e: Exception) {
             Log.e(TAG, "Connectivity read failed: ${e.message}")
             "Unknown"
@@ -296,7 +293,6 @@ class DeviceStateProvider @Inject constructor(
                     country != null -> country
                     else -> String.format(Locale.US, "%.4f, %.4f", lat, lng)
                 }
-            } else {
                 String.format(Locale.US, "%.4f, %.4f", lat, lng)
             }
         } catch (e: Exception) {
@@ -396,278 +392,3 @@ class DeviceStateProvider @Inject constructor(
         }
     }
 }
-package com.opendroid.ai.core.agent
-
-import android.Manifest
-import android.bluetooth.BluetoothManager
-import android.content.Context
-import android.content.pm.PackageManager
-import android.location.Geocoder
-import android.location.LocationManager
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
-import android.net.wifi.WifiManager
-import android.os.BatteryManager
-import android.os.Build
-import android.util.Log
-import androidx.core.content.ContextCompat
-import dagger.hilt.android.qualifiers.ApplicationContext
-import java.util.Locale
-import java.util.TimeZone
-import javax.inject.Inject
-import javax.inject.Singleton
-
-/**
- * Reads REAL device sensor state for WiFi, connectivity, battery,
- * location, and Bluetooth. Used by WorkingMemory and LLM system prompt.
- *
- * Uses modern NetworkCapabilities API (not deprecated activeNetworkInfo).
- * Includes network change listener for real-time state updates.
- */
-@Singleton
-class DeviceStateProvider @Inject constructor(
-    @ApplicationContext private val context: Context
-) {
-    companion object {
-        private const val TAG = "DeviceStateProvider"
-    }
-
-    // Callback reference for cleanup
-    private var registeredNetworkCallback: ConnectivityManager.NetworkCallback? = null
-
-    // Listener for state changes — set by WorkingMemory to receive updates
-    var onStateChanged: (() -> Unit)? = null
-
-    // ── WiFi ────────────────────────────────────────────
-
-    fun getWifiState(): String {
-        return try {
-            val wifiManager = context.applicationContext
-                .getSystemService(Context.WIFI_SERVICE) as WifiManager
-
-            when {
-                // Check if WiFi is enabled first
-                !wifiManager.isWifiEnabled -> "Inactive"
-
-                // WiFi enabled — check if actually connected
-                else -> {
-                    val connectivityManager = context
-                        .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        val network = connectivityManager.activeNetwork
-                        val capabilities = connectivityManager.getNetworkCapabilities(network)
-
-                        if (capabilities?.hasTransport(
-                                NetworkCapabilities.TRANSPORT_WIFI
-                            ) == true
-                        ) {
-                            "Active"      // WiFi on AND connected
-                        } else {
-                            "Enabled"     // WiFi on but not connected
-                        }
-                    } else {
-                        // Older Android
-                        @Suppress("DEPRECATION")
-                        val networkInfo = connectivityManager
-                            .getNetworkInfo(ConnectivityManager.TYPE_WIFI)
-                        if (networkInfo?.isConnected == true) "Active" else "Enabled"
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "WiFi state read failed: ${e.message}")
-            "Unknown"
-        }
-    }
-
-    val isWifiConnected: Boolean
-        get() = getWifiState() == "Active"
-
-    // ── Connectivity (Internet) ─────────────────────────
-
-    fun getConnectivityState(): String {
-        return try {
-            val connectivityManager = context
-                .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val network = connectivityManager.activeNetwork
-                    ?: return "None"   // no active network at all
-
-                val capabilities = connectivityManager
-                    .getNetworkCapabilities(network)
-                    ?: return "None"
-
-                when {
-                    // Has actual internet access
-                    capabilities.hasCapability(
-                        NetworkCapabilities.NET_CAPABILITY_INTERNET
-                    ) &&
-                    capabilities.hasCapability(
-                        NetworkCapabilities.NET_CAPABILITY_VALIDATED
-                    ) -> {
-                        // Determine connection type
-                        when {
-                            capabilities.hasTransport(
-                                NetworkCapabilities.TRANSPORT_WIFI
-                            ) -> "WiFi"
-
-                            capabilities.hasTransport(
-                                NetworkCapabilities.TRANSPORT_CELLULAR
-                            ) -> "Mobile Data"
-
-                            capabilities.hasTransport(
-                                NetworkCapabilities.TRANSPORT_ETHERNET
-                            ) -> "Ethernet"
-
-                            else -> "Connected"
-                        }
-                    }
-
-                    // Network exists but no validated internet
-                    capabilities.hasCapability(
-                        NetworkCapabilities.NET_CAPABILITY_INTERNET
-                    ) -> "Limited"
-
-                    else -> "None"
-package com.opendroid.ai.core.agent
-
-import android.Manifest
-import android.bluetooth.BluetoothManager
-import android.content.Context
-import android.content.pm.PackageManager
-import android.location.Geocoder
-import android.location.LocationManager
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
-import android.net.wifi.WifiManager
-import android.os.BatteryManager
-import android.os.Build
-import android.util.Log
-import androidx.core.content.ContextCompat
-import dagger.hilt.android.qualifiers.ApplicationContext
-import java.util.Locale
-import java.util.TimeZone
-import javax.inject.Inject
-import javax.inject.Singleton
-
-/**
- * Reads REAL device sensor state for WiFi, connectivity, battery,
- * location, and Bluetooth. Used by WorkingMemory and LLM system prompt.
- *
- * Uses modern NetworkCapabilities API (not deprecated activeNetworkInfo).
- * Includes network change listener for real-time state updates.
- */
-@Singleton
-class DeviceStateProvider @Inject constructor(
-    @ApplicationContext private val context: Context
-) {
-    companion object {
-        private const val TAG = "DeviceStateProvider"
-    }
-
-    // Callback reference for cleanup
-    private var registeredNetworkCallback: ConnectivityManager.NetworkCallback? = null
-
-    // Listener for state changes — set by WorkingMemory to receive updates
-    var onStateChanged: (() -> Unit)? = null
-
-    // ── WiFi ────────────────────────────────────────────
-
-    fun getWifiState(): String {
-        return try {
-            val wifiManager = context.applicationContext
-                .getSystemService(Context.WIFI_SERVICE) as WifiManager
-
-            when {
-                // Check if WiFi is enabled first
-                !wifiManager.isWifiEnabled -> "Inactive"
-
-                // WiFi enabled — check if actually connected
-                else -> {
-                    val connectivityManager = context
-                        .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        val network = connectivityManager.activeNetwork
-                        val capabilities = connectivityManager.getNetworkCapabilities(network)
-
-                        if (capabilities?.hasTransport(
-                                NetworkCapabilities.TRANSPORT_WIFI
-                            ) == true
-                        ) {
-                            "Active"      // WiFi on AND connected
-                        } else {
-                            "Enabled"     // WiFi on but not connected
-                        }
-                    } else {
-                        // Older Android
-                        @Suppress("DEPRECATION")
-                        val networkInfo = connectivityManager
-                            .getNetworkInfo(ConnectivityManager.TYPE_WIFI)
-                        if (networkInfo?.isConnected == true) "Active" else "Enabled"
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "WiFi state read failed: ${e.message}")
-            "Unknown"
-        }
-    }
-
-    val isWifiConnected: Boolean
-        get() = getWifiState() == "Active"
-
-    // ── Connectivity (Internet) ─────────────────────────
-
-    fun getConnectivityState(): String {
-        return try {
-            val connectivityManager = context
-                .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val network = connectivityManager.activeNetwork
-                    ?: return "None"   // no active network at all
-
-                val capabilities = connectivityManager
-                    .getNetworkCapabilities(network)
-                    ?: return "None"
-
-                when {
-                    // Has actual internet access
-                    capabilities.hasCapability(
-                        NetworkCapabilities.NET_CAPABILITY_INTERNET
-                    ) &&
-                    capabilities.hasCapability(
-                        NetworkCapabilities.NET_CAPABILITY_VALIDATED
-                    ) -> {
-                        // Determine connection type
-                        when {
-                            capabilities.hasTransport(
-                                NetworkCapabilities.TRANSPORT_WIFI
-                            ) -> "WiFi"
-
-                            capabilities.hasTransport(
-                                NetworkCapabilities.TRANSPORT_CELLULAR
-                            ) -> "Mobile Data"
-
-                            capabilities.hasTransport(
-                                NetworkCapabilities.TRANSPORT_ETHERNET
-                            ) -> "Ethernet"
-
-                            else -> "Connected"
-                        }
-                    }
-
-                    // Network exists but no validated internet
-                    capabilities.hasCapability(
-                        NetworkCapabilities.NET_CAPABILITY_INTERNET
-                    ) -> "Limited"
-
-                    else -> "None"
-                }
