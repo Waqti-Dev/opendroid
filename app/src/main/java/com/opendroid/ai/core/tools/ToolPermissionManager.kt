@@ -33,13 +33,12 @@ class ToolPermissionManager {
             val first = normalized.substringBefore(' ').substringBefore('\t')
             if (first !in allowedFirstTokens) return false
 
-            // Keep command arguments relative to the agent workspace. This blocks
-            // ../ traversal and absolute filesystem paths at the policy boundary.
+            // Keep command arguments relative to the agent workspace.
+            // Absolute paths and ../ traversal are rejected at the policy boundary.
             val tokens = normalized.split(Regex("\\s+"))
             if (tokens.any { token ->
                     token == ".." || token.startsWith("../") || token.contains("/../") ||
-                    token.startsWith("/\\") || token.startsWith("/data/") ||
-                    token.startsWith("/sdcard/") || token.startsWith("/storage/")
+                    token.startsWith("/") || token.startsWith("~")
                 }) return false
 
             return forbiddenFragments.none { normalized.contains(it, ignoreCase = true) }
