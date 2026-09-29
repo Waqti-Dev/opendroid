@@ -96,7 +96,7 @@ Migration rule: keep `opendroid/main` and `waqti-qwen-reference-runtime` unchang
 ## Model Management + GGUF Import Checkpoint — 2026-09-29
 
 - **Branch:** `waqti-mvp-v1`
-- **Commit:** pending focused commit after this verification
+- **Commit:** `ba8ea5a`
 - **Architecture audit:** the app uses Jetpack Compose, a single `MainDashboard` tab shell, `SettingsViewModel`, Room `ModelDao`/`ModelRepository`, `SettingsRepository` for provider/model config, Hilt provider injection, `LLMProviderFactory`, and the native `waqti_runtime` JNI bridge.
 
 ### Verified in source
