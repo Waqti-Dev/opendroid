@@ -78,7 +78,8 @@ fun SettingsScreen(
     onNavigateToNotificationHistory: () -> Unit = {},
     onNavigateToPermissions: () -> Unit = {},
     onNavigateToCrashLog: () -> Unit = {},
-    onNavigateToRoutines: () -> Unit = {}
+    onNavigateToRoutines: () -> Unit = {},
+    onNavigateToModels: () -> Unit = {}
 ) {
     val config by viewModel.llmConfig.collectAsState()
     val connectionResults by viewModel.connectionResults.collectAsState()
@@ -954,6 +955,15 @@ fun SettingsScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
                             Divider(color = BorderColor, thickness = 1.dp)
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Button(
+                                onClick = onNavigateToModels,
+                                modifier = Modifier.fillMaxWidth().height(40.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+                            ) {
+                                Text("Models", color = DarkBackground, fontWeight = FontWeight.Bold)
+                            }
                             Spacer(modifier = Modifier.height(12.dp))
                             
                             // ─── LiteRT-LM Backend Section ───

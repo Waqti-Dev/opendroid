@@ -109,6 +109,29 @@ bool has_required_tensors(const waqti::gguf::Metadata& metadata) {
     return true;
 }
 
+const char* quantization_name(uint32_t file_type) {
+    switch (file_type) {
+        case 0: return "F32";
+        case 1: return "F16";
+        case 2: return "Q4_0";
+        case 3: return "Q4_1";
+        case 6: return "Q5_0";
+        case 7: return "Q5_1";
+        case 8: return "Q8_0";
+        case 9: return "Q8_1";
+        case 10: return "Q2_K";
+        case 12: return "Q3_K_S";
+        case 13: return "Q3_K_M";
+        case 14: return "Q3_K_L";
+        case 15: return "Q4_K_S";
+        case 16: return "Q4_K_M";
+        case 17: return "Q5_K_S";
+        case 18: return "Q5_K_M";
+        case 19: return "Q6_K";
+        default: return "UNKNOWN";
+    }
+}
+
 std::string metadata_json(const waqti::gguf::ParseResult& result, bool inference_supported) {
     if (!result.ok) {
         return "{\"ok\":false,\"error\":\"" + json_escape(result.error) + "\"}";
@@ -120,6 +143,7 @@ std::string metadata_json(const waqti::gguf::ParseResult& result, bool inference
            ",\"tensorCount\":" + std::to_string(m.tensor_count) +
            ",\"metadataCount\":" + std::to_string(m.metadata_count) +
            ",\"architecture\":\"" + json_escape(m.architecture) + "\"" +
+           ",\"quantization\":\"" + quantization_name(m.file_type) + "\"" +
            ",\"contextLength\":" + std::to_string(m.context_length) +
            ",\"embeddingLength\":" + std::to_string(m.embedding_length) +
            ",\"layers\":" + std::to_string(m.block_count) +

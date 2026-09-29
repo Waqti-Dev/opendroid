@@ -352,7 +352,16 @@ class ModelRepository @Inject constructor(
             }
 
             if (isGguf) {
-                localGgufModelStore.setActive(modelId, targetFile.absolutePath)
+                val inspection = NativeGgufInspector.inspectFile(targetFile.absolutePath)
+                check(inspection.ok && inspection.inferenceSupported) {
+                    inspection.error ?: "GGUF is not a supported Qwen2 model."
+                }
+                localGgufModelStore.setActive(modelId, targetFile.absolutePath, inspection)
+                settingsRepository.updateConfig { current ->
+                    current
+                        .withActiveProvider(ProviderCatalog.LOCAL_GGUF)
+                        .withSelectedModel(ProviderCatalog.LOCAL_GGUF, modelId)
+                }
             } else {
                 val refFile = File(context.filesDir, "litert_models/${modelId}.litertlm")
                 refFile.parentFile?.mkdirs()
@@ -430,6 +439,7 @@ class ModelRepository @Inject constructor(
             refFile.delete()
         }
         if (isCustom) {
+            localGgufModelStore.clearModel(model.id)
             modelDao.deleteModel(model.id)
         }
     }
@@ -461,6 +471,26 @@ class ModelRepository @Inject constructor(
                 .withSelectedModel(ProviderCatalog.ON_DEVICE, model.id)
         }
     }
+
+    suspend fun activateLocalGguf(modelId: String): Boolean = withContext(Dispatchers.IO) {
+        val entity = modelDao.getModelById(modelId) ?: return@withContext false
+        if (entity.status != ModelStatus.READY) return@withContext false
+        val modelFile = File(entity.localPath).listFiles()
+            ?.firstOrNull { it.isFile && it.extension.equals("gguf", ignoreCase = true) }
+            ?: return@withContext false
+        val inspection = NativeGgufInspector.inspectFile(modelFile.absolutePath)
+        if (!inspection.ok || !inspection.inferenceSupported) return@withContext false
+        localGgufModelStore.setActive(modelId, modelFile.absolutePath, inspection)
+        settingsRepository.updateConfig { current ->
+            current
+                .withActiveProvider(ProviderCatalog.LOCAL_GGUF)
+                .withSelectedModel(ProviderCatalog.LOCAL_GGUF, modelId)
+        }
+        modelDao.updateLastUsed(modelId, System.currentTimeMillis())
+        true
+    }
+
+    fun localGgufMetadata(modelId: String) = localGgufModelStore.metadataFor(modelId)
 
     override suspend fun isDownloaded(model: OnDeviceModel): Boolean {
         val spec = resolveLiteRTSpec(model.id) ?: return false

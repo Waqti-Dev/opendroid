@@ -57,3 +57,12 @@ No test was removed or weakened. No Gradle dependency was randomly upgraded. No 
 Do not rerun the full suite yet. The smallest justified test-fixture correction is complete: the fake returns one `WriteFile` tool call followed by a final assistant response. The targeted test and related agent class both pass. Keep the Maven/Robolectric checksum issue separate and investigate it only with a preserved isolated cache if needed.
 
 Handle the Robolectric checksum issue separately with a preserved isolated cache or carefully repaired sidecar.
+
+
+## Model Management / GGUF Import Status — 2026-09-29
+
+**Status:** MODEL MANAGEMENT IMPLEMENTED — REAL DEVICE FLOW NOT YET VERIFIED
+
+The current `waqti-mvp-v1` work adds a real Compose `ModelsScreen` reachable from Settings, Android `OpenDocument` GGUF import, streaming URI-to-private-storage installation, native GGUF validation, Room registration, persisted active model/path/metadata, active-model selection, deletion cleanup, and Local GGUF provider routing through JNI. The exact source flow is Settings → Models → OpenDocument → ModelRepository → NativeGgufInspector → private file + Room row + LocalGgufModelStore → SettingsRepository active provider/model → LLMProviderFactory → LocalGgufProvider → NativeGgufGenerator.
+
+Build verification is **PASS** for debug assembly, JVM unit tests, lint, unsigned release assembly, native CTest, ASAN, and UBSAN. Real Android execution is **NOT VERIFIED** because no adb/device target is available in the sandbox. Therefore this checkpoint does not claim device import, restart persistence, or Chat generation through the installed APK.

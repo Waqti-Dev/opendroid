@@ -282,6 +282,16 @@ class SettingsViewModel @Inject constructor(
         _localImportStatus.value = null
     }
 
+    fun activateLocalGguf(modelId: String) {
+        viewModelScope.launch {
+            if (!modelRepository.activateLocalGguf(modelId)) {
+                _localImportStatus.value = "The GGUF model is unavailable or failed native validation."
+            } else {
+                _localImportStatus.value = "Active model updated"
+            }
+        }
+    }
+
     fun refreshModels(force: Boolean = false) {
         viewModelScope.launch {
             try {

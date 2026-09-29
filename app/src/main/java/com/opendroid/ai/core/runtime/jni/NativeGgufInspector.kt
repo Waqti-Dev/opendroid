@@ -11,6 +11,7 @@ data class NativeGgufInspection(
     val tensorCount: Long? = null,
     val metadataCount: Long? = null,
     val architecture: String? = null,
+    val quantization: String? = null,
     val contextLength: Long? = null,
     val embeddingLength: Long? = null,
     val layers: Long? = null,

@@ -19,11 +19,15 @@ class LocalGgufProvider @Inject constructor(
     private val store = LocalGgufModelStore(context.applicationContext)
 
     override val name: String = "Local GGUF"
-    override val availableModels: List<String> = listOf("qwen2.5-0.5b-instruct-q4_k_m")
+    override val availableModels: List<String>
+        get() = listOfNotNull(store.activeModelId())
+            .ifEmpty { listOf("qwen2.5-0.5b-instruct-q4_k_m") }
 
     override suspend fun complete(request: LLMRequest): LLMResponse = withContext(Dispatchers.Default) {
         val modelFile = store.activeFile()
             ?: throw IllegalStateException("No valid GGUF model has been imported.")
+        val activeModelId = store.activeModelId()
+            ?: throw IllegalStateException("No active GGUF model has been selected.")
         val prompt = request.messages.lastOrNull()?.text?.trim().orEmpty()
         if (prompt.isEmpty()) throw IllegalArgumentException("Local GGUF requires a non-empty prompt.")
         val maxTokens = request.maxTokens.coerceIn(1, 2048)
@@ -33,7 +37,7 @@ class LocalGgufProvider @Inject constructor(
         LLMResponse(
             content = result.generatedText,
             tokensUsed = result.promptTokenIds.size + result.generatedTokenCount,
-            model = request.model ?: availableModels.first(),
+            model = activeModelId,
             provider = name,
             latencyMs = (System.nanoTime() - started).nanoseconds.inWholeMilliseconds
         )

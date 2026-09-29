@@ -91,3 +91,36 @@ Migration rule: keep `opendroid/main` and `waqti-qwen-reference-runtime` unchang
 - Old `opendroid/main`: unchanged
 - Old `waqti-qwen-reference-runtime`: untouched
 - Current old-repository audit checkpoint: `a117c2a843a745e52e61d92b8f5b2ad552355d50`
+
+
+## Model Management + GGUF Import Checkpoint — 2026-09-29
+
+- **Branch:** `waqti-mvp-v1`
+- **Commit:** pending focused commit after this verification
+- **Architecture audit:** the app uses Jetpack Compose, a single `MainDashboard` tab shell, `SettingsViewModel`, Room `ModelDao`/`ModelRepository`, `SettingsRepository` for provider/model config, Hilt provider injection, `LLMProviderFactory`, and the native `waqti_runtime` JNI bridge.
+
+### Verified in source
+
+- Settings now has a real `Models` entry routed to `ModelsScreen`.
+- `ModelsScreen` uses Android `OpenDocument` with a `.gguf` filter.
+- Import streams the selected `content://` URI into app-managed private model storage; the model bytes are not stored in Kotlin memory or preferences.
+- `ModelRepository` validates the copied file using `NativeGgufInspector.inspectFile`, requires `ok && inferenceSupported`, registers a Room model row, and persists the active GGUF path plus native metadata.
+- Stored metadata includes architecture, quantization label, context length, layer count, and vocabulary size.
+- The user can see installed custom models, native metadata, validation status, set one as the Local GGUF Chat model, and delete it.
+- Local GGUF provider resolves the persisted active file and returns the persisted model ID; it does not silently switch to a cloud provider on native failure.
+
+### Verification
+
+- `./gradlew assembleDebug`: **PASS**
+- `./gradlew testDebugUnitTest lintDebug`: **PASS**; lint reports one hint plus 33 findings covered by the existing baseline.
+- `./gradlew assembleRelease -PallowUnsignedRelease=true`: **PASS**
+- Native CTest: **8/8 PASS**
+- ASAN CTest: **8/8 PASS**
+- UBSAN CTest: **8/8 PASS**
+- Real Android device execution: **NOT VERIFIED** — `adb` is unavailable in the sandbox and no authorized Android device was available.
+
+### Artifacts and limitations
+
+- Debug APK: `app/build/outputs/apk/debug/app-debug.apk`
+- Unsigned release APK: `app/build/outputs/apk/release/app-release-unsigned.apk`
+- The full Settings → Models → Import GGUF → validate → install → select → Chat flow is implemented and build-verified, but the end-to-end Android device flow and generation through the installed APK remain **NOT VERIFIED**.

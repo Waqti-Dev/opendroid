@@ -56,6 +56,7 @@ object OpenDroidRoutes {
     const val CRASH_LOG = "crash_log"
     const val ROUTINES = "routines"
     const val SOCIAL = "social"
+    const val MODELS = "models"
 }
 
 /**
@@ -170,6 +171,9 @@ fun OpenDroidNavigation(
                 },
                 onNavigateToRoutines = {
                     navController.navigate(OpenDroidRoutes.ROUTINES)
+                },
+                onNavigateToModels = {
+                    navController.navigate(OpenDroidRoutes.MODELS)
                 }
             )
         }
@@ -275,6 +279,13 @@ fun OpenDroidNavigation(
             val socialViewModel: SocialViewModel = hiltViewModel()
             SocialScreen(viewModel = socialViewModel)
         }
+
+        composable(OpenDroidRoutes.MODELS) {
+            ModelsScreen(
+                viewModel = hiltViewModel(),
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 
@@ -300,7 +311,8 @@ fun MainDashboard(
     onNavigateToNotificationHistory: () -> Unit = {},
     onNavigateToPermissions: () -> Unit = {},
     onNavigateToCrashLog: () -> Unit = {},
-    onNavigateToRoutines: () -> Unit = {}
+    onNavigateToRoutines: () -> Unit = {},
+    onNavigateToModels: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -434,7 +446,8 @@ fun MainDashboard(
                         onNavigateToNotificationHistory = onNavigateToNotificationHistory,
                         onNavigateToPermissions = onNavigateToPermissions,
                         onNavigateToCrashLog = onNavigateToCrashLog,
-                        onNavigateToRoutines = onNavigateToRoutines
+                        onNavigateToRoutines = onNavigateToRoutines,
+                        onNavigateToModels = onNavigateToModels
                     )
                 }
             }
